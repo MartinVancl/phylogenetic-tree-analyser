@@ -1,1 +1,2 @@
-# phylogenetic-tree-analyser
+# Phylogenetic Tree Analyser
+by Martin Vancl

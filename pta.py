@@ -2,6 +2,13 @@
 
 DEFAULT_OUTPUT_FILE = 'pta_output.csv' # for unspecified output file
 TREE_FILE_EXTENSION = '.fasta.tre' # used when a whole directory of trees is set
+RUN_QUIETLY = False # no prints will be executed
+
+if RUN_QUIETLY:
+    # this overrides the built-in print function to silence the whole program
+    def overriden_print(*args):
+        pass
+    print = overriden_print
 
 from sys import argv
 from os import path, listdir
@@ -105,6 +112,12 @@ class treeFilesManager:
             if isfile(join(self.wd, f)) and f[-10:] == TREE_FILE_EXTENSION:
                 self.treeFiles += [f]
 
+    def loadFilenames(self):
+        if self.args.isFlagValued('f'):
+            self.loadFromFile(self.args.getFlagValue('f'))
+        else:
+            self.loadFromDirectory('.')
+
 class outputManager:
     def __init__(self, args, treeMgr):
         self.args = args
@@ -132,21 +145,15 @@ class outputManager:
                 
 
 def main():
-
+    # prepare argument parser
     args = argParser()
-
+    # prepare input management according to flags
     treeMgr = treeFilesManager(args)
-
+    # prepare output file according to flags
     outMgr = outputManager(args, treeMgr)
-
-    if args.isFlagValued('f'):
-        treeMgr.loadFromFile(args.getFlagValue('f'))
-    else:
-        treeMgr.loadFromDirectory('.')
-
     print("Output will be:", outMgr.outfile)
-
-
+    # load treeFiles according to flags
+    treeMgr.loadFilenames()
     print(treeMgr.treeFiles)
 
 if __name__ == "__main__":

@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 
+DEFAULT_OUTPUT_FILE = 'pta_output.csv' # for unspecified output file
+TREE_FILE_EXTENSION = '.fasta.tre' # used when a whole directory of trees is set
+
 from sys import argv
 from os import path, listdir
 from os.path import isfile, join
@@ -52,6 +55,7 @@ class argParser:
             return (False, None) if giveIndex else False
 
 class treeFilesManager:
+    treeFiles = []
     def __init__(self, args):
         # sets the working directory of the script
         # if not set, then uses current directory
@@ -70,76 +74,80 @@ class treeFilesManager:
         return isfile(join(self.wd, filename))
 
     def loadFromFile(self, filename):
-        pass
-    def loadFromDirectory(self, directory):
-        pass
-    def filterExisting(self):
-        pass
+        # load tree files to work with from a file
+        if self.fileExists(filename):
+            with open(join(self.wd, filename), 'r') as file:
+                # open the file to read
+                self.treeFiles = []
+
+                # process all lines
+                for line in file.readlines():
+                    # append and remove /r, /n
+                    self.treeFiles += [line.rstrip()]
+
+                countUnfiltered = len(self.treeFiles)
+                # filter only existing files
+                self.treeFiles = [f for f in self.treeFiles if self.fileExists(f)]
+                
+                deleted = countUnfiltered - len(self.treeFiles)
+                if deleted > 0:
+                    print(f"There were {deleted} non-existent files listed in '{filename}' and will be skipped")
+
+        else:
+            exit(f"Source file {filename} does not exist.")
+
+    def loadFromDirectory(self, directory='.'):
+        # load .fasta.tre file names form a defined directory relative to the working directory
+        self.treeFiles = []
+
+        for f in listdir(join(self.wd, directory)):
+            # file is a file and has correct extension
+            if isfile(join(self.wd, f)) and f[-10:] == TREE_FILE_EXTENSION:
+                self.treeFiles += [f]
+
+class outputManager:
+    def __init__(self, args, treeMgr):
+        self.args = args
+        if self.args.isFlagValued('o'):
+            outfile = join(treeMgr.wd, self.args.getFlagValue('o'))
+            if treeMgr.fileExists(outfile):
+                if args.isFlagSet('r'):
+                    # rewrite file
+                    self.outfile = outfile
+                    # delete contents
+                    open(self.outfile, 'w').close()
+
+                elif args.isFlagSet('c'):
+                    # continuation will be attempted
+                    self.outfile = outfile
+                else:
+                    # behavior unspecified, asking for flags
+                    exit(f"Output file '{outfile}' already exists. Use -r to rewrite its contents or -c to continue progress")
+            else:
+                # file does not exist and will be created
+                self.outfile = outfile
+        else:
+            # default output file
+            self.outfile = join(treeMgr.wd, DEFAULT_OUTPUT_FILE)
+                
 
 def main():
 
     args = argParser()
 
-    treeFiles = treeFilesManager(args)
+    treeMgr = treeFilesManager(args)
 
-    print("exists", treeFiles.fileExists("Takayama-helix-ANV-100120_homologs.fasta.tre"))
+    outMgr = outputManager(args, treeMgr)
 
-
-
-def noexec():
-    # tis an o'code that i dissect and transform into something more OOP
-
-    # check input file argument -f
-    treesFile = False
-    if '-f' in args:
-        i = args.index('-f')
-        if i + 1 < argsLen:
-            fpath = args[i+1]
-            if path.exists(fpath):
-                treesFile = fpath
-                # print(f"File exists: '{treesFile}'")
-            else:
-                print(f"Input file '{fpath}' does not exist.")
-                exit()
-
-    # check output file argument -o
-    if '-o' in args:
-        i = args.index('-o')
-        if i + 1 < argsLen:
-            fpath = args[i+1]
-            if path.exists(fpath):
-                if '-a' in args and '-r' not in args:
-                    print("File exists and will be appended")
-                elif '-r' in args and '-a' not in args:
-                    print("File exists and will be replaced")
-                else:
-                    print(f"File {fpath} already exists. \nUse either -a flag to append results or -r to replace results (WARNING! this deletes content of '{fpath}').")
-
-
-    folderpath = '.'
-    if not treesFile:
-        treesFile = [f for f in listdir(folderpath) if isfile(join(folderpath, f)) and f[-9:] == 'fasta.tre']
+    if args.isFlagValued('f'):
+        treeMgr.loadFromFile(args.getFlagValue('f'))
     else:
-        with open(fpath, 'r') as file:
-            treesFile = []
-            for line in file.readlines():
-                
-                # if line[-9:] == 'fasta.tre' or line[-10:-1] == 'fasta.tre':
-                treesFile += [line.rstrip()]
-            count = len(treesFile)
-            treesFile = [f for f in treesFile if isfile(f) and f[-9:] == 'fasta.tre']
-            deleted = count - len(treesFile)
-            if deleted > 0:
-                print(f"{deleted} file(s) in '{fpath}' don't exist and are ignored")
+        treeMgr.loadFromDirectory('.')
 
-    print(treesFile)
+    print("Output will be:", outMgr.outfile)
 
 
-
-
-
-
-
+    print(treeMgr.treeFiles)
 
 if __name__ == "__main__":
     main()

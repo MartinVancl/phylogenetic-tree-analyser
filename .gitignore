@@ -3,7 +3,8 @@
 *.csv
 *.fasta.tre
 
-
+# ignore IDE
+.vscode/
 
 
 

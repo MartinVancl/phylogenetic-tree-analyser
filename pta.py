@@ -6,6 +6,8 @@ from os.path import isfile, join
 
 class argParser:
     def __init__(self, verbose=False):
+        # load arguments from system interface
+        # set basic variables within the instance
         self.fullArgsString = argv[0]
         self.args = argv[1:]
         self.argsLength = len(self.args)
@@ -15,22 +17,28 @@ class argParser:
             print(self.args)
 
     def isFlagSet(self, flag):
+        # boolean representation of whether a flag is present in arguments
         return f"-{flag}" in self.args
 
     def getFlagPosition(self, flag):
+        # returns position of a flag as index, nonexistent returns None
         if self.isFlagSet(flag):
+            # flag exists, find it's index
             return self.args.index(f"-{flag}")
         else:
             return None
 
     def getFlagValue(self, flag):
-        fv = self.isFlagValued(flag, True)
+        # for a flag followed by a value, gives the value or None for non-existent flag or value
+        fv = self.isFlagValued(flag, giveIndex=True)
         if fv[0]:
+            # flag is valued, use the index to return it
             return self.args[fv[1]]
         else:
             return None
             
     def isFlagValued(self, flag, giveIndex=False):
+        # determine, if a flag is followed by a value other than another flag
         i = self.getFlagPosition(flag)
         if type(i) == int:
             if i + 1 < self.argsLength and self.args[i + 1][0] != '-':
@@ -45,9 +53,11 @@ class argParser:
 
 class treeFilesManager:
     def __init__(self, args):
+        # sets the working directory of the script
+        # if not set, then uses current directory
         self.args = args
         if self.args.isFlagValued('d'):
-            # working directory is set by -d ...
+            # working directory is set by -d /path/to/wd
             wd = self.args.getFlagValue('d')
             if path.exists(wd):
                 self.wd = wd

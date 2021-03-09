@@ -143,6 +143,119 @@ class outputManager:
             # default output file
             self.outfile = join(treeMgr.wd, DEFAULT_OUTPUT_FILE)
                 
+class taxon:
+    # node of a tree (taxon)
+    def __init__(self, name, edge=None, isRoot=False):
+        self.name = name
+        self.isRoot = isRoot
+        self.edge = edge
+    def setEdge(self, edge):
+        if type(edge) == edge:
+            self.edge = edge
+        else:
+            exit(f"Failed attempt to set non-edge edge {edge} in {self}")
+
+class edge:
+    # evaluated edge of a tree
+    a = []
+    b = []
+    def __init__(self, tree, a, b, bootstrap):
+        # create an edge referencing two 'sibling' pairs of subtrees or taxons
+        self.bootstrap = bootstrap
+        if len(a) == and len(b) == 2:
+            for e in a+b:
+                if type(e) not in [taxon, edge]:
+                    exit(f"Mismatched object types in edge constructor (objects: {e})")
+                elif type(e) == taxon:
+                    e.ed
+            # joined objects are taxons or edges
+            self.a = a
+            self.b = b
+            tree.edgeList.append(self)
+
+class phylogeneticTree:
+    # parses fasta.tre file to build a tree, manages operations on it
+    def __init__(self):
+        self.rootElement = None
+        self.edgeList = []
+        self.taxonList = []
+    
+    def treFileLoad(self, treeMgr, path):
+        # load tree file, strip header
+        if not treeMgr.fileExists(path):
+            exit(f"Tree file '{path}' could not be found")
+        
+        with open(path, 'r') as file:
+            # load file
+            # TODO remove headers
+            tf = file.read().rstrip()
+        
+        buffer = []
+        # states
+        state = 0
+        inTaxon = 1
+        inBootstrap = 2
+        taxonNameStart = None
+        bootstrapStart = None
+
+        for i in range(len(tf)):
+            if state == 0 and tf[i] == '(':
+                # start of file
+                state = 1
+
+            elif state == 1:
+                if tf[i] != ':':
+                    if taxonNameStart is None:
+                        taxonNameStart = i
+                        # start of taxon name
+                    continue
+
+                elif tf[i] == ':':
+                    # end of taxon name
+                    taxonName = tf[taxonNameStart:i]
+                    taxonNameStart = None
+                    state = 2
+                    # print(taxonName)
+
+            elif state == 2:
+                if tf[i] not in '),':
+                    if bootstrapStart is None:
+                        bootstrapStart = i
+                        # start of taxon name
+                    continue
+                elif tf[i] in '),':
+                    bootstrap = float(tf[bootstrapStart:i])
+                    bootstrapStart = None
+                    state = 1 # wrong
+                    print(f"Taxon: {taxonName} {bootstrap}")
+
+
+
+
+
+
+
+        
+                
+class setDefinitions:
+    # parses arguments to define subsets of the tree
+    # one instance per tree
+    def __init__(self, tree):
+        pass
+                
+class criterionMatcher:
+    # uses defined criteria to determine their validity on a subtree
+    # one instance per defined criteria
+    def __init__(self, tree, sets, criteria):
+        pass
+
+class definitionsManager:
+    # parses all set and criteria definitions from arguments and builds their instances
+    def __init__(self, args):
+        pass
+
+
+
 
 def main():
     # prepare argument parser
@@ -155,6 +268,10 @@ def main():
     # load treeFiles according to flags
     treeMgr.loadFilenames()
     print(treeMgr.treeFiles)
+
+    pt = phylogeneticTree()
+    pt.treFileLoad(treeMgr, treeMgr.treeFiles[0])
+
 
 if __name__ == "__main__":
     main()

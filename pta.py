@@ -3,6 +3,7 @@
 DEFAULT_OUTPUT_FILE = 'pta_output.csv' # for unspecified output file
 TREE_FILE_EXTENSION = '.fasta.tre' # used when a whole directory of trees is set
 RUN_QUIETLY = False # no prints will be executed
+VERBOSE = False # enables some informational prints, error prints are unaffected
 
 if RUN_QUIETLY:
     # this overrides the built-in print function to silence the whole program
@@ -13,17 +14,17 @@ if RUN_QUIETLY:
 from sys import argv
 from os import path, listdir
 from os.path import isfile, join
-from re import split, finditer, sub
+import re
 
 class argParser:
     def __init__(self, verbose=False):
         # load arguments from system interface
         # set basic variables within the instance
-        self.fullArgsString = argv[0]
         self.args = argv[1:]
+        self.fullArgsString = ' '.join(self.args)
         self.argsLength = len(self.args)
 
-        if verbose:
+        if VERBOSE:
             print("args=", end='')
             print(self.args)
 
@@ -184,14 +185,25 @@ class edge:
     # evaluated edge of a tree
     def __init__(self):
         pass
+    def getOtherSide(self, e):
+        if e in [self.a, self.b]:
+            if e == self.a:
+                return self.b
+            else:
+                return self.a
+        else:
+            exit("Wrong tree walk, programmer's fault.")
 
 class phylogeneticTree:
     # parses fasta.tre file to build a tree, manages operations on it
     def __init__(self):
-        self.rootElement = None
-        self.edgeList = []
-        self.taxonList = []
+        self.root = None
+        self.edges = []
+        self.taxons = []
     
+    def sortEdges(self):
+        self.edges = sorted(self.edges, key=lambda e: -e.bs)
+
     def treFileLoad(self, treeMgr, path):
         # load tree file, strip header
         if not treeMgr.fileExists(path):
@@ -200,27 +212,176 @@ class phylogeneticTree:
         with open(path, 'r') as file:
             # load file
             # TODO remove headers
-            tf = file.read().rstrip()   
+            data = file.read().rstrip()
+            data = data.rstrip()[1:-2]
+            data = re.sub(r':[0-9]\.[0-9]*', '', data)
+            self.parseFile(data)
+
+    def parseFile(self, data):
+        i = data.find(',')
+        self.root = taxon(data[:i], True)
+        self.taxons.append(self.root)
+        self.nodeRecurse(data[i+1:], self.root)
+
+    def findMatchingBracket(self, data, i):
+        status = 0
+        o = 0
+        for c in data[i+1:]:
+            o += 1
+            if status == 0 and c == ')':
+                return i+o
+            else:
+                if c == ')':
+                    status -= 1
+                elif c == '(':
+                    status += 1
+
+
+    def nodeRecurse(self, data, con):
+        newNode = node()
+
+        newNode.ways[0] = con
+
+        l = 0
+        bs = None
+        if data[l] == '(':
+            r = self.findMatchingBracket(data, l)
+            bso = data[r+1:].find(',')
+            bs = int(data[r+1:r+1+bso])
+
+            e = edge()
+            self.edges.append(e)
+
+            e.a = newNode
+            e.b = self.nodeRecurse(data[l+1:r], e)
+            addToNode = e
+            e.bs = bs
+            r += bso+2
+            pass
+        else:
+            r = data[l:].find(',')
+            addToNode = taxon(data[l:r])
+            self.taxons.append(addToNode)
+            r +=1
+
+        x = data[r]
+
+        newNode.ways[1] = addToNode
+
+        l = r
+        bs = None
+        if data[l] == '(':
+            r = self.findMatchingBracket(data, l)
+            e = edge()
+            self.edges.append(e)
+
+            e.a = newNode
+            e.b = self.nodeRecurse(data[l+1:r], e)
+            addToNode = e
+            bs = int(data[r+1:])
+            e.bs = bs
+            pass
+        else:
+            addToNode = taxon(data[l:])
+            self.taxons.append(addToNode)
+
+
+        newNode.ways[2] = addToNode
+
+        return newNode      
                 
 class setDefinitions:
+    sets = {}
     # parses arguments to define subsets of the tree
     # one instance per tree
-    def __init__(self, tree):
+    def __init__(self, tree, args):
+        self.argsString = args.getFlagValue('s')
+        self.tree = tree
+
+        sets = self.argsString.split(',')
+        for name in sets:
+            i = name.find('=')
+
+            definition = re.sub(r'\*', '.*', name[i+1:] )
+            if definition[:2] != '.*':
+                definition = "^" + definition
+            if definition[-2:] != '.*':
+                definition = definition + "$"
+            p = re.compile(definition)
+
+            self.sets[name[:i]] = [ s.name for s in tree.taxons if p.match(s.name)]
         pass
-                
-class criterionMatcher:
+
+    def countIntersects(self, taxons, setName):
+        x = set(self.sets[setName])
+        y = set(taxons)
+        return length(x.intersection(y))
+
+    def countDifference(self, taxons, setName):
+        x = set(self.sets[setName])
+        y = set(taxons)
+        return length(x.difference(y))
+               
+class criteriaDefinitions:
     # uses defined criteria to determine their validity on a subtree
     # one instance per defined criteria
-    def __init__(self, tree, sets, criteria):
+    crits = {}
+    def __init__(self, tree, setDef, args):
+        self.setDef = setDef
+        self.tree = tree
+
+        crits = args.getFlagValue('c').split(' ')
+        for c in crits:
+            i = c.find('=')
+            self.crits[c[0:i]] = c[i+1:].split(',')
+        if VERBOSE:
+            print(self.crits) 
         pass
+
+    def testCrit(self, c : dict, tl):
+        if VERBOSE:
+            print(f"Test criterium {c} = \"{self.crits[c]}\" on {tl}")
+
+        for s in self.crits[c]:
+            if s[-1:] in ['+','-']:
+                maxCrit = True if s[-1] == '-' else False
+                n = int(re.sub(r'^[A-Za-z_]', '', s[:-1]))
+                sn = re.sub(r'[0-9]', '', s[:-1])
+
+                diff = set(tl).intersection(self.setDef.sets[sn])
+                diff.discard(self.tree.root.name)
+
+                common = len(diff)
+                if maxCrit:
+                    if common > n:
+                        return False
+                else: # minCrit
+                    if common < n:
+                        return False
+                
+                pass
+
+        unionCrit = set()
+        for s in self.crits[c]:
+            s = re.sub(r'[0-9]', '', s[:-1] if s[-1] in ['+','-'] else s)
+                # normal sets
+            unionCrit = unionCrit.union(self.setDef.sets[s])
+
+        diff = set(tl).difference(unionCrit)
+        diff.discard(self.tree.root.name)
+
+        if len(diff) > 0:
+            # found taxons from a sets complement
+            return False
+
+
+
+        return True
 
 class definitionsManager:
     # parses all set and criteria definitions from arguments and builds their instances
     def __init__(self, args):
         pass
-
-
-
 
 def main():
     # prepare argument parser
@@ -229,13 +390,94 @@ def main():
     treeMgr = treeFilesManager(args)
     # prepare output file according to flags
     outMgr = outputManager(args, treeMgr)
-    print("Output will be:", outMgr.outfile)
+    if VERBOSE:
+        print("Output will be:", outMgr.outfile)
     # load treeFiles according to flags
     treeMgr.loadFilenames()
-    print(treeMgr.treeFiles)
+    if VERBOSE:
+        print(treeMgr.treeFiles)
 
-    pt = phylogeneticTree()
-    pt.treFileLoad(treeMgr, treeMgr.treeFiles[0])
+
+    with open(outMgr.outfile, "w") as out:
+
+        out.write(f"\"root_element\",")
+        
+        for c in args.getFlagValue('c').split(','):
+            out.write(f"\"{c}\",")
+
+        out.write(f"\"{args.fullArgsString}\"\n")
+
+        for tr in treeMgr.treeFiles:
+
+            pt = phylogeneticTree()
+            pt.treFileLoad(treeMgr, tr)
+
+            pt.sortEdges()
+
+            # if VERBOSE:
+            #     for i in pt.taxons:
+            #         print("[R]" if i.isRoot else "   ", i.name)
+
+            #     for i in pt.edges:
+            #         print(f"Edge with BS: {i.bs} connects")
+            #         for j in i.a.ways:
+            #             if type(j) != edge:
+            #                 print("\t\t", j.name)
+            #             elif j != i:
+            #                 print(f"\t\t another edge with BS: {j.bs}")
+            #         print("\tand")
+            #         for j in i.b.ways:
+            #             if type(j) != edge:
+            #                 print("\t\t", j.name)
+            #             elif j != i:
+            #                 print(f"\t\t another edge with BS: {j.bs}")
+            #         print('')
+            #     pass
+
+
+            sd = setDefinitions(pt, args)
+
+            cd = criteriaDefinitions(pt, sd, args)
+
+            bestBoostraps = dict()
+
+            out.write(f"\"{pt.root.name}\",")
+
+            for ckey in cd.crits:
+                bestBoostraps[ckey] = -1
+                for e in pt.edges:
+                    taxonList = []
+                    subTrees(e.a, e, taxonList)
+                    
+                    if cd.testCrit(ckey, taxonList):
+                        bestBoostraps[ckey] = e.bs
+                        # print(f"Best bootstrap for {ckey} = {cd.crits[ckey]} is {e.bs}")
+                        out.write(f"\"{e.bs}\",")
+                        break
+                if bestBoostraps[ckey] < 0:
+                    # print(f"No valid bootstrap for {ckey} = {cd.crits[ckey]} found")
+                    out.write(f"\"0\",")
+                out.write("\"0\"\n")
+                    
+
+
+        
+def subTrees(n, e, tl):
+    for i in n.getFork(e):
+        if type(i) == taxon:
+            tl.append(i.name)
+        elif type(i) == edge:
+            subTrees(i.getOtherSide(n), i, tl)
+
+
+
+
+
+
+
+
+   
+
 
 
 
@@ -244,102 +486,11 @@ def main():
 if __name__ == "__main__":
     main()
 
-def findMatchingBracket(data, i):
-    status = 0
-    o = 0
-    for c in data[i+1:]:
-        o += 1
-        if status == 0 and c == ')':
-            return i+o
-        else:
-            if c == ')':
-                status -= 1
-            elif c == '(':
-                status += 1
-
-
-taxons = []
-edges = []
-
-def recurse(data, con):
-    newNode = node()
-
-    newNode.ways[0] = con
-
-    l = 0
-    bs = None
-    if data[l] == '(':
-        r = findMatchingBracket(data, l)
-        e = edge()
-        edges.append(e)
-
-        e.a = newNode
-        e.b = recurse(data[l+1:r], e)
-        addToNode = e
-        bso = data[r+1:].find(',')
-        bs = int(data[r+1:r+1+bso])
-        e.bs = bs
-        r += bso+2
-        pass
-    else:
-        r = data[l:].find(',')
-        addToNode = taxon(data[l:r])
-        taxons.append(addToNode)
-        r +=1
-
-    x = data[r]
-
-    newNode.ways[1] = addToNode
-
-    l = r
-    bs = None
-    if data[l] == '(':
-        r = findMatchingBracket(data, l)
-        e = edge()
-        edges.append(e)
-
-        e.a = newNode
-        e.b = recurse(data[l+1:r], e)
-        addToNode = e
-        bs = int(data[r+1:])
-        e.bs = bs
-        pass
-    else:
-        addToNode = taxon(data[l:])
-        taxons.append(addToNode)
-
-
-    newNode.ways[2] = addToNode
-
-    return newNode
-
-
-
-        
 
 
 
 
 
-
-
-with open("phylo.fasta.tre", 'r') as tree:
-    data = tree.read().rstrip()[1:-2]
-    data = sub(r':[0-9]\.[0-9]*', '', data)
-
-
-i = data.find(',')
-root = taxon(data[:i], True)
-taxons.append(root)
-
-x = recurse(data[i+1:], root)
-
-print(edges)
-print(taxons)
-
-
-
-pass
 
 
 # recBrackets(data, 0, 'start')

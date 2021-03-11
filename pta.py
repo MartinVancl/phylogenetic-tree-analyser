@@ -13,6 +13,7 @@ if RUN_QUIETLY:
 from sys import argv
 from os import path, listdir
 from os.path import isfile, join
+from re import split, finditer, sub
 
 class argParser:
     def __init__(self, verbose=False):
@@ -145,33 +146,44 @@ class outputManager:
                 
 class taxon:
     # node of a tree (taxon)
-    def __init__(self, name, edge=None, isRoot=False):
+    def __init__(self, name, isRoot=False):
         self.name = name
         self.isRoot = isRoot
-        self.edge = edge
-    def setEdge(self, edge):
-        if type(edge) == edge:
-            self.edge = edge
+        # self.econdge = con
+    # def setEdge(self, edge):
+    #     if type(con) in [edge, node]:
+    #         self.con = con
+    #     else:
+    #         exit(f"Failed attempt to set wrong type con {con} in {self}")
+
+class node:
+    def __init__(self):
+        self.ways = [None, None, None]
+        pass
+
+    def getFork(self, edgeFrom):
+        o = []
+        for e in self.ways:
+            if e != edgeFrom:
+                o.append(e)
+        if len(o) > 2:
+            print(f"Node {self} called with wrong source node {edgeFrom}")
         else:
-            exit(f"Failed attempt to set non-edge edge {edge} in {self}")
+            return o
+
+    def getLeft(self, edgeFrom):
+        return self.getFork(edgeFrom)[0]
+
+    def getRight(self, edgeFrom):
+        return self.getFork(edgeFrom)[1]
 
 class edge:
+    a = None
+    b = None
+    bs = None
     # evaluated edge of a tree
-    a = []
-    b = []
-    def __init__(self, tree, a, b, bootstrap):
-        # create an edge referencing two 'sibling' pairs of subtrees or taxons
-        self.bootstrap = bootstrap
-        if len(a) == and len(b) == 2:
-            for e in a+b:
-                if type(e) not in [taxon, edge]:
-                    exit(f"Mismatched object types in edge constructor (objects: {e})")
-                elif type(e) == taxon:
-                    e.ed
-            # joined objects are taxons or edges
-            self.a = a
-            self.b = b
-            tree.edgeList.append(self)
+    def __init__(self):
+        pass
 
 class phylogeneticTree:
     # parses fasta.tre file to build a tree, manages operations on it
@@ -188,54 +200,7 @@ class phylogeneticTree:
         with open(path, 'r') as file:
             # load file
             # TODO remove headers
-            tf = file.read().rstrip()
-        
-        buffer = []
-        # states
-        state = 0
-        inTaxon = 1
-        inBootstrap = 2
-        taxonNameStart = None
-        bootstrapStart = None
-
-        for i in range(len(tf)):
-            if state == 0 and tf[i] == '(':
-                # start of file
-                state = 1
-
-            elif state == 1:
-                if tf[i] != ':':
-                    if taxonNameStart is None:
-                        taxonNameStart = i
-                        # start of taxon name
-                    continue
-
-                elif tf[i] == ':':
-                    # end of taxon name
-                    taxonName = tf[taxonNameStart:i]
-                    taxonNameStart = None
-                    state = 2
-                    # print(taxonName)
-
-            elif state == 2:
-                if tf[i] not in '),':
-                    if bootstrapStart is None:
-                        bootstrapStart = i
-                        # start of taxon name
-                    continue
-                elif tf[i] in '),':
-                    bootstrap = float(tf[bootstrapStart:i])
-                    bootstrapStart = None
-                    state = 1 # wrong
-                    print(f"Taxon: {taxonName} {bootstrap}")
-
-
-
-
-
-
-
-        
+            tf = file.read().rstrip()   
                 
 class setDefinitions:
     # parses arguments to define subsets of the tree
@@ -273,5 +238,111 @@ def main():
     pt.treFileLoad(treeMgr, treeMgr.treeFiles[0])
 
 
+
+
+
 if __name__ == "__main__":
     main()
+
+def findMatchingBracket(data, i):
+    status = 0
+    o = 0
+    for c in data[i+1:]:
+        o += 1
+        if status == 0 and c == ')':
+            return i+o
+        else:
+            if c == ')':
+                status -= 1
+            elif c == '(':
+                status += 1
+
+
+taxons = []
+edges = []
+
+def recurse(data, con):
+    newNode = node()
+
+    newNode.ways[0] = con
+
+    l = 0
+    bs = None
+    if data[l] == '(':
+        r = findMatchingBracket(data, l)
+        e = edge()
+        edges.append(e)
+
+        e.a = newNode
+        e.b = recurse(data[l+1:r], e)
+        addToNode = e
+        bso = data[r+1:].find(',')
+        bs = int(data[r+1:r+1+bso])
+        e.bs = bs
+        r += bso+2
+        pass
+    else:
+        r = data[l:].find(',')
+        addToNode = taxon(data[l:r])
+        taxons.append(addToNode)
+        r +=1
+
+    x = data[r]
+
+    newNode.ways[1] = addToNode
+
+    l = r
+    bs = None
+    if data[l] == '(':
+        r = findMatchingBracket(data, l)
+        e = edge()
+        edges.append(e)
+
+        e.a = newNode
+        e.b = recurse(data[l+1:r], e)
+        addToNode = e
+        bs = int(data[r+1:])
+        e.bs = bs
+        pass
+    else:
+        addToNode = taxon(data[l:])
+        taxons.append(addToNode)
+
+
+    newNode.ways[2] = addToNode
+
+    return newNode
+
+
+
+        
+
+
+
+
+
+
+
+with open("phylo.fasta.tre", 'r') as tree:
+    data = tree.read().rstrip()[1:-2]
+    data = sub(r':[0-9]\.[0-9]*', '', data)
+
+
+i = data.find(',')
+root = taxon(data[:i], True)
+taxons.append(root)
+
+x = recurse(data[i+1:], root)
+
+print(edges)
+print(taxons)
+
+
+
+pass
+
+
+# recBrackets(data, 0, 'start')
+
+
+

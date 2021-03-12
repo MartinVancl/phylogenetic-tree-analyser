@@ -2,37 +2,50 @@
 a seminar program by Martin Vancl, as part of _NPRG030/Programming I_ at Charles University, Faculty of Mathematics and Physics
 
 ## Dependencies
-Program requires Python 3 with built-in modules sys, os and re
+Program requires Python3 with built-in modules sys, os and re
 
 ## In-Script Configuration
-- *DEFAULT_OUTPUT_FILE* sets default csv output file when unspecified
-- *TREE_FILE_EXTENSION* sets file extension to filter when loading directory
-- *RUN_QUIETLY* turns off all print functions
-- *VERBOSE* turns on some extra informational prints
+- `DEFAULT_OUTPUT_FILE` sets default csv output file when unspecified
+- `TREE_FILE_EXTENSION` sets file extension to filter when loading directory
+- `RUN_QUIETLY` turns off all print functions
+- `VERBOSE` turns on some extra informational prints
 
-## Run Command
-[python3] pta.py [-d DIR][-f FILENAME][-c -r] -s SET_DEFINITIONS_STRING -c CRITERIA_DEFINITION_STRING
+## Running
+
+Command line interface:
+
+    pta.py [-d DIR][-f FILENAME][-c|-r][-o OUTPUT_FILE] -s SET_DEFINITIONS_STRING -c CRITERIA_DEFINITION_STRING
+
+Example: 
+
+    pta.py -d . -f trees.txt -r -s dino=Dinos-*,karen=Karenia\* -c cany=dino,karen cmax=dino2-,karen3-`
+
+where _trees.txt_ contains
+
+    First-Tree-1000.fasta.tre
+    Second-Tree-1150.fasta.tre
+    Third-Tree-1200.fasta.tre
 
 ## Script Arguments
-- **-d** sets working directory
-- **-f** input file containing tree files list
-- **-r** replace output csv file
-- **-a** attempt to continue on output file
+- **`-d`** sets working directory
+- **`-f`** input file containing tree files list
+- **`-r`** replace output csv file
+- **`-a`** attempt to continue on output file
 
-- **-c** string of criteria definitions
-- **-s** string of set definitions
+- **`-c`** string of criteria definitions
+- **`-s`** string of set definitions
 
 ## String Definitions
 
 ### SET_DEFINITIONS_STRING
-With format _name2=First_name,name2=Second_name_, you can set multiple sets of taxons. 
+With format _`name2=First_name,name2=Second_name`_, you can set multiple sets of taxons. 
 
-You can use wildcard **\*** anywhere in the name string, such as _Dinos-\*_, _\*-Gracilis\*_ or _Kareniaceae-\*-1000\*_. 
+You can use wildcard **`\*`** anywhere in the name string, such as _`Dinos-\*`_, _`\*-Gracilis\*`_ or _`Kareniaceae-\*-1000\*`_. 
 
 Separate multiple sets by comma without space, names can **alphabetical** characters.
 
 ### CRITERIA_DEFINITION_STRING
-With format _crit1=setA,setB, crit2=setA2+,setB5- you can specify criteria to test subtrees for.
+With format _`crit1=setA,setB, crit2=setA2+,setB5-`_ you can specify criteria to test subtrees for.
 
 To require subtree containing (apart from root taxon) only specific subset of taxons, use comma separated listing of the sets.
 

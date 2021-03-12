@@ -21,6 +21,7 @@ class argParser:
         # load arguments from system interface
         # set basic variables within the instance
         self.args = argv[1:]
+        # create full arguments list to prefix output file
         self.fullArgsString = ' '.join(self.args)
         self.argsLength = len(self.args)
 
@@ -73,6 +74,7 @@ class treeFilesManager:
             # working directory is set by -d /path/to/wd
             wd = self.args.getFlagValue('d')
             if path.exists(wd):
+                # sets working directory
                 self.wd = wd
             else:
                 exit(f"Working directory '{wd}' set by -d does not exist.")
@@ -99,6 +101,7 @@ class treeFilesManager:
                 self.treeFiles = [f for f in self.treeFiles if self.fileExists(f)]
                 
                 deleted = countUnfiltered - len(self.treeFiles)
+                # counts how many listed filenames are non-existent
                 if deleted > 0:
                     print(f"There were {deleted} non-existent files listed in '{filename}' and will be skipped")
 
@@ -116,28 +119,33 @@ class treeFilesManager:
 
     def loadFilenames(self):
         if self.args.isFlagValued('f'):
+            # get filenames from external file
             self.loadFromFile(self.args.getFlagValue('f'))
         else:
+            # use current directory as default
             self.loadFromDirectory('.')
 
 class outputManager:
+    # manages exporting to csv
     def __init__(self, args, treeMgr):
         self.args = args
         if self.args.isFlagValued('o'):
+            # output file is set and is not default
             outfile = join(treeMgr.wd, self.args.getFlagValue('o'))
             if treeMgr.fileExists(outfile):
+                # checks existence of the output file
                 if args.isFlagSet('r'):
                     # rewrite file
                     self.outfile = outfile
                     # delete contents
                     open(self.outfile, 'w').close()
 
-                elif args.isFlagSet('c'):
+                elif args.isFlagSet('a'):
                     # continuation will be attempted
                     self.outfile = outfile
                 else:
                     # behavior unspecified, asking for flags
-                    exit(f"Output file '{outfile}' already exists. Use -r to rewrite its contents or -c to continue progress")
+                    exit(f"Output file '{outfile}' already exists. Use -r to rewrite its contents or -a to continue progress")
             else:
                 # file does not exist and will be created
                 self.outfile = outfile
@@ -158,34 +166,40 @@ class taxon:
     #         exit(f"Failed attempt to set wrong type con {con} in {self}")
 
 class node:
+    # connects three edges or taxons
     def __init__(self):
         self.ways = [None, None, None]
         pass
 
     def getFork(self, edgeFrom):
+        # gives you the other two connected elements, than one passed as edgeFrom
         o = []
         for e in self.ways:
             if e != edgeFrom:
                 o.append(e)
         if len(o) > 2:
+            # errors if tree walking asked fork from non-present edge/taxon
             print(f"Node {self} called with wrong source node {edgeFrom}")
         else:
             return o
 
     def getLeft(self, edgeFrom):
+        # gives first of forks
         return self.getFork(edgeFrom)[0]
 
     def getRight(self, edgeFrom):
+        # gives second of forks
         return self.getFork(edgeFrom)[1]
 
 class edge:
-    a = None
-    b = None
-    bs = None
     # evaluated edge of a tree
     def __init__(self):
+        self.a = None
+        self.b = None
+        self.bs = None
         pass
     def getOtherSide(self, e):
+        # returns the other side of the edge
         if e in [self.a, self.b]:
             if e == self.a:
                 return self.b
@@ -202,6 +216,7 @@ class phylogeneticTree:
         self.taxons = []
     
     def sortEdges(self):
+        # order edgelist by its bootstrap value to trim calculations
         self.edges = sorted(self.edges, key=lambda e: -e.bs)
 
     def treFileLoad(self, treeMgr, path):
@@ -211,66 +226,82 @@ class phylogeneticTree:
         
         with open(path, 'r') as file:
             # load file
-            # TODO remove headers
             data = file.read().rstrip()
+            # remove encapsulation bracket pair
             data = data.rstrip()[1:-2]
+            # remove unimportant edge evaluations (length)
             data = re.sub(r':[0-9]\.[0-9]*', '', data)
             self.parseFile(data)
 
     def parseFile(self, data):
+        # start building tree from data
+        # get root taxon name from the start
         i = data.find(',')
         self.root = taxon(data[:i], True)
         self.taxons.append(self.root)
+        # run recursive tree builder
         self.nodeRecurse(data[i+1:], self.root)
 
     def findMatchingBracket(self, data, i):
+        # state automat for finding corresponding right bracket position
         status = 0
         o = 0
         for c in data[i+1:]:
+            # go through string by characters
             o += 1
             if status == 0 and c == ')':
+                # matching states and bracket found
                 return i+o
             else:
                 if c == ')':
+                    # reduce state
                     status -= 1
                 elif c == '(':
+                    # increase state
                     status += 1
 
 
     def nodeRecurse(self, data, con):
+        # create a new node to build around
         newNode = node()
-
+        # link "parent" element to this node
         newNode.ways[0] = con
 
+        # go through data string and find corresponding two elements
         l = 0
         bs = None
         if data[l] == '(':
+            # starts with subtree, find it's end bracked and recursively process
             r = self.findMatchingBracket(data, l)
             bso = data[r+1:].find(',')
             bs = int(data[r+1:r+1+bso])
-
+            # create connecting edge
             e = edge()
             self.edges.append(e)
-
+            # connect the edge to current node
             e.a = newNode
+            # connect the edge to new subtree
             e.b = self.nodeRecurse(data[l+1:r], e)
             addToNode = e
             e.bs = bs
+            # increase position in data to process next element
             r += bso+2
             pass
         else:
+            # starts with taxon (leaf), create and append the taxon
             r = data[l:].find(',')
             addToNode = taxon(data[l:r])
             self.taxons.append(addToNode)
             r +=1
 
-        x = data[r]
-
+        # append new link to this node
         newNode.ways[1] = addToNode
 
+        # continue to the other node of this fork
         l = r
         bs = None
         if data[l] == '(':
+            # element is a subtree, process it
             r = self.findMatchingBracket(data, l)
             e = edge()
             self.edges.append(e)
@@ -282,12 +313,13 @@ class phylogeneticTree:
             e.bs = bs
             pass
         else:
+            # element is a taxon, create and connect it
             addToNode = taxon(data[l:])
             self.taxons.append(addToNode)
 
 
         newNode.ways[2] = addToNode
-
+        # new node was created and will be returned to be connected to parent node
         return newNode      
                 
 class setDefinitions:
@@ -297,27 +329,33 @@ class setDefinitions:
     def __init__(self, tree, args):
         self.argsString = args.getFlagValue('s')
         self.tree = tree
-
+        # parse all argument-defined sets
         sets = self.argsString.split(',')
         for name in sets:
+            # get definition and name split index
             i = name.find('=')
-
+            # get definition string and replace wildcards with regex equivalent
             definition = re.sub(r'\*', '.*', name[i+1:] )
             if definition[:2] != '.*':
+                # add string start regex
                 definition = "^" + definition
             if definition[-2:] != '.*':
+                # add string end regex
                 definition = definition + "$"
+            # build the definition's regex
             p = re.compile(definition)
-
+            # create this definition's list of valid taxons
             self.sets[name[:i]] = [ s.name for s in tree.taxons if p.match(s.name)]
         pass
 
     def countIntersects(self, taxons, setName):
+        # number of intersections with all taxons
         x = set(self.sets[setName])
         y = set(taxons)
         return length(x.intersection(y))
 
     def countDifference(self, taxons, setName):
+        # number of differences with all taxons
         x = set(self.sets[setName])
         y = set(taxons)
         return length(x.difference(y))
@@ -326,13 +364,15 @@ class criteriaDefinitions:
     # uses defined criteria to determine their validity on a subtree
     # one instance per defined criteria
     crits = {}
-    def __init__(self, tree, setDef, args):
+    def __init__(self, setDef, args):
+        self.tree = setDef.tree
         self.setDef = setDef
-        self.tree = tree
-
+        # parse criteria from arguments
         crits = args.getFlagValue('c').split(' ')
         for c in crits:
+            # split name and definition
             i = c.find('=')
+            # add all set citerie of this name as list
             self.crits[c[0:i]] = c[i+1:].split(',')
         if VERBOSE:
             print(self.crits) 
@@ -344,37 +384,48 @@ class criteriaDefinitions:
 
         for s in self.crits[c]:
             if s[-1:] in ['+','-']:
+                # if criterium is has number-constraing
+                # set which constraint it is (max or min)
                 maxCrit = True if s[-1] == '-' else False
+                # parse set name for the constraint
                 n = int(re.sub(r'^[A-Za-z_]', '', s[:-1]))
+                # parse the number for the constraint
                 sn = re.sub(r'[0-9]', '', s[:-1])
-
+                # get difference of all tested taxons and this set
                 diff = set(tl).intersection(self.setDef.sets[sn])
+                # remove root taxon
                 diff.discard(self.tree.root.name)
-
+                # count how many taxons are left
                 common = len(diff)
                 if maxCrit:
+                    # max criterim test
                     if common > n:
+                        # failed test
                         return False
-                else: # minCrit
+                else:
+                    # min criterium test
                     if common < n:
+                        # failed test
                         return False
                 
                 pass
 
         unionCrit = set()
         for s in self.crits[c]:
+            # testing "clean content" criteria
+            # removes number and +/- from definitions where they were
             s = re.sub(r'[0-9]', '', s[:-1] if s[-1] in ['+','-'] else s)
-                # normal sets
+            # now we have "pretend" normal sets
+            # append (union) the set to a big set of all
             unionCrit = unionCrit.union(self.setDef.sets[s])
-
+        # differ tested taxons and the built set
         diff = set(tl).difference(unionCrit)
+        # remove root taxons (if it was part of defined set, it would be removed already)
         diff.discard(self.tree.root.name)
-
+        # calculate how many taxons are left
         if len(diff) > 0:
-            # found taxons from a sets complement
+            # found taxons from a sets complement, so they are not just from it
             return False
-
-
 
         return True
 
@@ -382,6 +433,13 @@ class definitionsManager:
     # parses all set and criteria definitions from arguments and builds their instances
     def __init__(self, args):
         pass
+
+def subTrees(n, e, tl):
+    for i in n.getFork(e):
+        if type(i) == taxon:
+            tl.append(i.name)
+        elif type(i) == edge:
+            subTrees(i.getOtherSide(n), i, tl)
 
 def main():
     # prepare argument parser
@@ -397,77 +455,90 @@ def main():
     if VERBOSE:
         print(treeMgr.treeFiles)
 
-
+    # prepare file for export
     with open(outMgr.outfile, "w") as out:
-
+        # start writing header
         out.write(f"\"root_element\",")
-        
+        # write criteria definitions header
         for c in args.getFlagValue('c').split(','):
             out.write(f"\"{c}\",")
-
+        # add whole arguments as part of a header
         out.write(f"\"{args.fullArgsString}\"\n")
 
-        for tr in treeMgr.treeFiles:
 
+        # run processing for all tree files
+        for tr in treeMgr.treeFiles:
+            # create new phylogenetic tree for current file
             pt = phylogeneticTree()
             pt.treFileLoad(treeMgr, tr)
 
+            # sort edges
+            # sort edges to trim tests
             pt.sortEdges()
 
-            # if VERBOSE:
-            #     for i in pt.taxons:
-            #         print("[R]" if i.isRoot else "   ", i.name)
-
-            #     for i in pt.edges:
-            #         print(f"Edge with BS: {i.bs} connects")
-            #         for j in i.a.ways:
-            #             if type(j) != edge:
-            #                 print("\t\t", j.name)
-            #             elif j != i:
-            #                 print(f"\t\t another edge with BS: {j.bs}")
-            #         print("\tand")
-            #         for j in i.b.ways:
-            #             if type(j) != edge:
-            #                 print("\t\t", j.name)
-            #             elif j != i:
-            #                 print(f"\t\t another edge with BS: {j.bs}")
-            #         print('')
-            #     pass
-
-
+            # build set definitions
             sd = setDefinitions(pt, args)
+            # build criteria definitions
+            cd = criteriaDefinitions(sd, args)
+            
+            # starting from highest bootstrap
+            # gives you best result as soon as criteria pass
+            if VERBOSE:
+                # print taxons and edges and what they connect
+                for i in pt.taxons:
+                    # print taxons
+                    print("[R]" if i.isRoot else "   ", i.name)
 
-            cd = criteriaDefinitions(pt, sd, args)
+                for i in pt.edges:
+                    # print edges
+                    print(f"Edge with BS: {i.bs} connects")
+                    for j in i.a.ways:
+                        # print what it connects from
+                        if type(j) != edge:
+                            print("\t\t", j.name)
+                        elif j != i:
+                            print(f"\t\t another edge with BS: {j.bs}")
+                    print("\tand")
+                    for j in i.b.ways:
+                        # print what it connects to
+                        if type(j) != edge:
+                            print("\t\t", j.name)
+                        elif j != i:
+                            print(f"\t\t another edge with BS: {j.bs}")
+                    print('')
+                pass
 
+            
             bestBoostraps = dict()
 
+            # start writing row, write out name 
             out.write(f"\"{pt.root.name}\",")
 
+            # run criteria test for each one
             for ckey in cd.crits:
+                # set impossibly bad bootstrap
                 bestBoostraps[ckey] = -1
                 for e in pt.edges:
+                    # go through all sorted edges
                     taxonList = []
+                    # build subtree in direction to root split by this edge
                     subTrees(e.a, e, taxonList)
                     
                     if cd.testCrit(ckey, taxonList):
+                        # criterium passed, set it as best
                         bestBoostraps[ckey] = e.bs
-                        # print(f"Best bootstrap for {ckey} = {cd.crits[ckey]} is {e.bs}")
+                        # best criterium found and will be exported
                         out.write(f"\"{e.bs}\",")
                         break
                 if bestBoostraps[ckey] < 0:
-                    # print(f"No valid bootstrap for {ckey} = {cd.crits[ckey]} found")
+                    # no valid subtree found, exporting as bootstrap 0
                     out.write(f"\"0\",")
+                # append ending thiny so i don't have to care about commas
                 out.write("\"0\"\n")
                     
 
 
         
-def subTrees(n, e, tl):
-    for i in n.getFork(e):
-        if type(i) == taxon:
-            tl.append(i.name)
-        elif type(i) == edge:
-            subTrees(i.getOtherSide(n), i, tl)
 
 
 

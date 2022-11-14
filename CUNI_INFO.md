@@ -1,5 +1,5 @@
 # Phylogenetic Tree Analyzer
-a seminar program by Martin Vancl, as part of _NPRG030/Programming I_ at Charles University, Faculty of Mathematics and Physics
+a seminar program by Adél Vancl, as part of _NPRG030/Programming I_ at Charles University, Faculty of Mathematics and Physics
 
 ## Program Specification (in Czech)
 - Program dle definovaných _množin taxonů_ (systematicky pojmenovaných _listů_ stromu) v každém stromu **nalezne nejvyšší ohodnocení hrany** (_bootstrap_), které určuje pravděpodobnost správného rozdělení příbuznosti listů ve dvou **podstromech oddělených touto hranou**, kde jeden ze stromů obsahuje kromě zadaného _seed taxonu_ pouze _taxony_ popsané _kvantifikovanými množinovými operacemi_, a nalezenou hodnotu systematicky uloží do výstupního _CSV souboru_.

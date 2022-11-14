@@ -4,6 +4,7 @@
 *.trees
 *.csv
 *.fasta.tre
+./examples
 
 *.tmp
 

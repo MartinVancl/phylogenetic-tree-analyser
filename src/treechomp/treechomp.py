@@ -10,20 +10,23 @@ def main():
     pprint(args)
 
     io = IOHandler(directory=args.directory, files=args.files, flist=args.list, output=args.output)
-    print("IO TREE_FILES:")
-    pprint(io.tree_files)
-    pprint(io.output)
-    print(f"{args.criteria=}")
-    print(f"{args.sets=}")
+
+    # while f := io.read_file():
+    #     print(f)
 
 
 class IOHandler:
     default_csv = "tc-output.csv"
 
+    @staticmethod
+    def extension_is_csv(filename: str):
+        return len(filename) > 4 and filename[-4:].lower() == '.csv'
+
     def __init__(self, directory=None, files=None, flist=None, output=None):
-        #
+        # get a list of valide files to analyze
         self.tree_files = []
         if directory:
+            directory = directory[0]
             # use all files in the set directory
             self.directory = directory
             self.tree_files = [f for f in listdir(directory) if isfile(join(directory, f))]
@@ -31,24 +34,40 @@ class IOHandler:
             # use files listed as arguments
             self.tree_files = [f for f in files if isfile(f)]
         elif flist:
+            flist = flist[0]
             # use list-file to get files listed in it
             if isfile(flist):
                 with open(flist) as file:
                     potential_files = [line.rstrip() for line in file]
                     self.tree_files = [f for f in potential_files if isfile(f)]
 
+        self.tree_files = list(filter(lambda x: not self.extension_is_csv(x), self.tree_files))
+        self.tree_files.sort()
+
+        self.current_file_index = 0
+        self.file_count = len(self.tree_files)
+
         if output:
             output = output[0]
 
-            if len(output) > 4 and output[-4, 0] == ".csv":
+            if self.extension_is_csv(output):
                 self.output = output
             else:
                 self.output = output + ".csv"
         else:
             self.output = self.default_csv
 
-    class FileLoader:
-        pass
+    def read_file(self, n=None):
+        if n and n < self.file_count:
+            with open(self.tree_files[n]) as file:
+                return file.readlines()[0]
+        elif self.current_file_index < self.file_count:
+            # just read next
+            with open(self.tree_files[self.current_file_index]) as file:
+                self.current_file_index += 1
+                return file.readlines()[0]
+        else:
+            return None
 
     class CSVExport:
         pass

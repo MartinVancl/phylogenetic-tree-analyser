@@ -77,13 +77,56 @@ class IOHandler:
 
 class PTree:
     class Edge:
-        pass
+        def __init__(self, tree, node_a=None, node_b=None, bootstrap=None):
+            self.bootstrap = bootstrap
+            self.nodes = (node_a, node_b)
+            self.tree = tree
+            self.tree.edges += self
+
+        def add_node(self, node):
+            if not self.nodes[0]:
+                self.nodes[0] = node
+            elif not self.nodes[1]:
+                self.nodes[1] = node
+            else:
+                raise Exception("Edge Already has both nodes.")
+
+        def get_nodes(self):
+            return self.nodes
+
+        def get_other_node(self, node):
+            if node in self.nodes:
+                if node == self.nodes[0]:
+                    return self.nodes[1]
+                elif node == self.nodes[1]:
+                    return self.nodes[0]
+                else:
+                    raise Exception("Node is and is not on this edge. This really shouldn't happen.")
 
     class Node:
-        pass
+        def __init__(self, tree, *edges):
+            self.edges = edges
+            self.tree = tree
+            self.tree.nodes += self
+
+        def add_edge(self, edge):
+            self.edges += edge
 
     class Taxon(Node):
-        pass
+        def __init__(self, tree, name, edge):
+            self.name = name
+            self.edges = [edge]
+            self.tree = tree
+            self.tree.nodes = self
+
+    def __init__(self, root_taxon_name):
+        self.nodes = []
+        self.edges = []
+
+        e = self.Edge(self)
+        root_taxon = self.Taxon(self, name=root_taxon_name, edge=e)
+
+    def add_edge(self, node):
 
 
 class TreeFile:

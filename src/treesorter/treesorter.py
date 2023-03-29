@@ -5,11 +5,6 @@ from os.path import isfile, join, basename
 from os import listdir
 from re import match, sub
 
-# TODO
-# figure out if the following actually works:
-# 1) takes smallest subtree if bootstrap caps at 100?
-# 2) ???
-
 
 class Settings:
     allowed_extensions = [".tre", ".tree", ".nex", ".nxs", ".treefile"]
@@ -36,7 +31,10 @@ def main():
         if args.n:
             exit("Minimum taxon number in subtree has to be set with -m MINTAXONS")
         else:
-            args.mintaxons = 2
+            args.mintaxons = 3
+    else:
+        args.mintaxons = int(args.mintaxons) + 1
+        pass
 
     files = Input.get_file_list(args)
     crit_tree = Critter.build_criteria_tree(args.criteria)
@@ -122,7 +120,6 @@ class CSVOutput:
             self.file_object.write(self.csv_row_from_list(items))
         else:
             exit("Headers already written")
-            return False
 
 
 class Critter:
@@ -251,7 +248,8 @@ class Critter:
         highest_bootstrap = -1
         lowest_rel_tolerance_used = 1.0
         lowest_abs_tolerance_used = 10e6
-        subtree_size = 0
+        tree_size = len(tree.taxons)
+        lowest_subtree_size = tree_size
 
         valid_count = 0
 
@@ -259,12 +257,14 @@ class Critter:
 
         results['file'] = basename(tree_path)
         results['taxon'] = seed_taxon
+        results['size'] = tree_size
         results['crits'] = {}
 
         for column, criterium in crit_tree.items():
             for edge in tree.edges:
                 for d in range(2):
                     taxons = edge.get_subtree_taxons(d)
+                    this_subtree_size = len(taxons)
                     is_valid, r_t, a_t = Critter.criteria_checker(taxons, criterium, float(Settings.args.tolerance),
                                                           int(Settings.args.mintaxons), seed=seed_taxon)
                     if is_valid:
@@ -273,15 +273,20 @@ class Critter:
                         if is_valid and edge.bs > highest_bootstrap:
                             # new best bootstrap
                             highest_bootstrap = edge.bs
-                            subtree_size = len(taxons)
+                            lowest_subtree_size = this_subtree_size
                             lowest_rel_tolerance_used = r_t
                             lowest_abs_tolerance_used = a_t
-                        elif edge.bs == highest_bootstrap and r_t < lowest_rel_tolerance_used:
-                            lowest_rel_tolerance_used = r_t
-                            lowest_abs_tolerance_used = a_t
+                        elif edge.bs == highest_bootstrap:
+                            # already at highest bootstrap
+                            if r_t < lowest_rel_tolerance_used:
+                                # can we get a lower tolarance used
+                                lowest_rel_tolerance_used = r_t
+                                lowest_abs_tolerance_used = a_t
+                            lowest_subtree_size = min(lowest_subtree_size, this_subtree_size)
+
 
             if valid_count > 0:
-                results['size'] = subtree_size
+                results['size'] = lowest_subtree_size
                 results['crits'][column] = (highest_bootstrap, lowest_rel_tolerance_used, lowest_abs_tolerance_used)
                 pass
             else:
@@ -305,7 +310,7 @@ class Input:
                     if begin:
                         data = line[line.find('('):]
                         data = sub('\d\.\d+E-\d+', '10.0', data)
-                        data = sub('\[&label=(\d+)\]', '\\1', data)
+                        data = sub('\[&label=(\d+)]', '\\1', data)
                         break
                     if line[:12] == "begin trees;":
                         begin = True
@@ -317,7 +322,6 @@ class Input:
 
     @staticmethod
     def get_file_list(args):
-        files = []
         # filename and root taxon
         if args.directory:
             files = Input.get_files_in_dir(args.directory[0])
@@ -387,6 +391,7 @@ class Input:
         return bn[:bn.find(".")]
 
 
+# noinspection PyTypeChecker
 class PTree:
     def __init__(self):
         self.root = None
@@ -499,6 +504,7 @@ class PTree:
             self.name = name
             self.edge = None
 
+    # noinspection PyTypeChecker
     class Edge:
         def __init__(self):
             self.bs = None

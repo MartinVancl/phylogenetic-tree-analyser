@@ -15,7 +15,6 @@ class Settings:
 
 
 def main():
-    # TODO: ať to nesere na natavení seed taxonu!
     args = parse_args()
     Settings.args = args
     Settings.verbose = args.v
@@ -46,7 +45,6 @@ def main():
     for file in files:
         i_t += 1
         # print(file)
-        # TODO check for RE spcified seed argument and explode it for this:
         tree = PTree()
         tree.parse_file(read_tree_file(file[0]))
         seed_taxons = []
@@ -313,28 +311,6 @@ def sort_one_tree_file(tree, seed_taxon, crit_tree, tree_path):
     return results
 
 
-def expand_seed_taxons(tree, seed_taxon):
-    seed_taxons = []
-    if not Settings.args.n:
-        if Settings.args.seedtaxon:
-            # print(f"Seed taxon explicit: '{Settings.args.seedtaxon}'")
-            # search_for = ""
-            search_for = Settings.args.seedtaxon
-            search_for = search_for.replace("*", ".*")
-            search_for = f"^{search_for}$"
-            # print(f"{search_for=}")
-            for taxon in tree.taxons:
-                if re.match(search_for, taxon.name):
-                    seed_taxons.append(taxon.name)
-        else:
-            # print(f"Seed taxon impicit, using: '{seed_taxon}'")
-            seed_taxons = [seed_taxon]
-    else:
-        # print(f"Seed taxon NOT to be used, ignoring {seed_taxon}")
-        seed_taxons = None
-    return seed_taxons
-
-
 def read_tree_file(path):
     with open(path, 'r') as f:
         data = ''.join(f.readlines()).rstrip()
@@ -353,12 +329,10 @@ def get_file_list(args):
         files = get_files_in_dir(args.directory[0])
         files = [[f, strip_name_to_taxon(f)] for f in files]
     elif args.list:
-        # TODO
         files = parse_csv_input(args.list[0])
         if not files[0][1]:
             files = [[f[0], strip_name_to_taxon(f[0])] for f in files]
     elif args.files:
-        # TODO
         files = [[f, strip_name_to_taxon(f)] for f in args.files]
     else:
         exit("No source of tree files specified.")
@@ -419,105 +393,6 @@ def get_files_in_dir(tree_dir):
     files = [tree_dir + _ for _ in files]
     # print(f"total of {len(files)} files")
     return files
-
-
-def bulk_stress_test():
-    tree_dir = "./tests/bulk/"
-
-    files = listdir(tree_dir)
-    bulk = [tree_dir + _ for _ in files]
-    bulk = list(filter(lambda name: name[-10:] == '.fasta.tre', bulk))
-    # print(bulk)
-
-    bulk_trees = []
-
-    f_i = 0
-    for i, fn in enumerate(bulk):
-        f_i += 1
-        print(f"{f_i:04d} {fn}")
-        with open(fn, 'r') as f:
-            data = ''.join(f.readlines()).rstrip()
-
-        t = PTree()
-        t.parse_file(data)
-        bulk_trees.append(t)
-
-    print(f"Parsed {len(bulk_trees)} trees.")
-
-    t_i = 0
-    for t in bulk_trees:
-        t_i += 1
-        print(f"TREE-{t_i:03d}", end=' ')
-        e_i = 0
-        for e in t.edges:
-            e_i += 1
-            print(f"E-{e_i:02d}", end=' ')
-            for i in range(2):
-                txns = e.get_subtree_taxons(i)
-                print(f"Edge {e} with Bootstrap={e.bs}")
-                print(f" contains {[txn.name for txn in txns]} and is {len(txns)} long")
-        print('')
-    # print(bulk_trees)
-
-
-class IOHandler:
-    default_csv = "tc-output.csv"
-
-    @staticmethod
-    def extension_is_csv(filename: str):
-        return len(filename) > 4 and filename[-4:].lower() == '.csv'
-
-    def __init__(self, directory=None, files=None, flist=None, output=None):
-        # get a list of valide files to analyze
-        self.tree_files = []
-        if directory:
-            directory = directory[0]
-            # use all files in the set directory
-            self.directory = directory
-            self.tree_files = [f for f in listdir(directory) if isfile(join(directory, f))]
-        elif files:
-            # use files listed as arguments
-            self.tree_files = [f for f in files if isfile(f)]
-        elif flist:
-            flist = flist[0]
-            # use list-file to get files listed in it
-            if isfile(flist):
-                with open(flist) as file:
-                    potential_files = [line.rstrip() for line in file]
-                    self.tree_files = [f for f in potential_files if isfile(f)]
-
-        self.tree_files = list(filter(lambda x: not self.extension_is_csv(x), self.tree_files))
-        self.tree_files.sort()
-
-        self.current_file_index = 0
-        self.file_count = len(self.tree_files)
-
-        if output:
-            output = output[0]
-
-            if self.extension_is_csv(output):
-                self.output = output
-            else:
-                self.output = output + ".csv"
-        else:
-            self.output = self.default_csv
-
-    def read_file(self, n=None):
-        if n and n < self.file_count:
-            with open(self.tree_files[n]) as file:
-                return file.readlines()[0]
-        elif self.current_file_index < self.file_count:
-            # just read next
-            with open(self.tree_files[self.current_file_index]) as file:
-                self.current_file_index += 1
-                return file.readlines()[0]
-        else:
-            return None
-
-    class CSVExport:
-        pass
-
-    pass
 
 
 class PTree:

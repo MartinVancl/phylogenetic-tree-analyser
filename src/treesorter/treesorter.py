@@ -1,9 +1,14 @@
 #!/usr/bin/env python3.9
-import argparse
+from argparse import ArgumentParser
 from pprint import pprint
-from os import listdir
 from os.path import isfile, join, basename
-import re
+from os import listdir
+from re import match, sub
+
+# TODO
+# figure out if the following actually works:
+# 1) takes smallest subtree if bootstrap caps at 100?
+# 2) ???
 
 
 class Settings:
@@ -29,8 +34,6 @@ def main():
     files = Input.get_file_list(args)
     crit_tree = Critter.build_criteria_tree(args.criteria)
 
-    # CSV TESTING - START HERE
-
     if args.output:
         output_file = args.output[0]
     else:
@@ -39,12 +42,9 @@ def main():
     csv = CSVOutput(output_file)
     csv.write_headers(args.criteria)
 
-    # exit("TESTING - STOP HERE")
-
     i_t = 0
     for file in files:
         i_t += 1
-        # print(file)
         tree = PTree()
         tree.parse_file(Input.read_tree_file(file[0]))
         seed_taxons = []
@@ -52,22 +52,15 @@ def main():
         if args.seedtaxon:
             seed_taxon_re = Critter.regize(args.seedtaxon)
             for taxon in tree.taxons:
-                if re.match(seed_taxon_re, taxon.name):
+                if match(seed_taxon_re, taxon.name):
                     seed_taxons.append(taxon.name)
         else:
             seed_taxons = [file[1]]
         for seed_taxon in seed_taxons:
             res = Critter.sort_one_tree_file(tree, seed_taxon, crit_tree, file[0])
-            # print(i_t)
-            # pprint(res)
             row = csv.csv_row_from_list(csv.list_from_result_dict(res))
-            # print(row)
             csv.write_row(row)
     csv.close_file()
-
-    # io = IOHandler(directory=args.directory, files=args.files, flist=args.list, output=args.output)
-    # while f := io.read_file():
-    #     print(f)
 
 
 class CSVOutput:
@@ -100,7 +93,6 @@ class CSVOutput:
         row = ""
         items_n = len(items)
         for i, item in enumerate(items):
-            # print(f"{i+1=}/{items_n} {item=}")
             row += f"\"{item}\"" + ("," if i + 1 < items_n else "")
 
         row += "\n"
@@ -150,7 +142,7 @@ class Critter:
             passing_taxon_count = 0
             for tested_taxon in taxons:
                 for re_pattern in quantified[1]:
-                    if re.match(re_pattern, tested_taxon.name):
+                    if match(re_pattern, tested_taxon.name):
                         passing_taxon_count += 1
                         passing_taxon_set.add(tested_taxon)
                         break
@@ -198,10 +190,8 @@ class Critter:
 
         if tolerance_is_relative:
             used_absolute_tolerance = round(used_relative_tolerance * taxons_n)
-            # print(f"This should be quite WHOLE  : {used_absolute_tolerance}")
         elif tolerance_is_absolute:
             used_relative_tolerance = used_absolute_tolerance / taxons_n
-            # print(f"This should be quite DECIMAL: {used_relative_tolerance:1.3f}")
 
         return True, round(used_relative_tolerance, Settings.relative_tolerance_rounding), used_absolute_tolerance
 
@@ -212,23 +202,17 @@ class Critter:
             crit_list = []
             q = 0
             while s:
-                # print(f"{j:04d} string is: {s}")
                 if s[0].isdigit():
-                    # print("is digit")
                     i = s.find("+")
                     q = float(s[:i])
-                    # print(f"{q=}")
                     s = s[i + 1:].lstrip(',')
                 elif s[0] == "(":
-                    # print("is (")
                     i = s.find(")")
                     tup = (q, [Critter.regize(_) for _ in s[1:i].split(',')])
                     crit_list.append(tup)
                     q = 0
-                    # print(f"{tup=}")
                     s = s[i + 1:].lstrip(',')
                 else:
-                    # print("else")
                     i = len(s) + 1
                     i = s.find(',') if s.find(',') >= 0 else i
                     tax = s[0:i]
@@ -244,9 +228,6 @@ class Critter:
             # go through all string criteria and prepare filter
             crit = crit.split('=')
             crits_tree[crit[0]] = parse_crit(crit[1])
-
-            # print(crits_tree)
-
         return crits_tree
 
     @staticmethod
@@ -278,7 +259,6 @@ class Critter:
                                                           int(Settings.args.mintaxons), seed=seed_taxon)
                     if is_valid:
                         valid_count += 1
-                        # print(f"Bootstrap {edge.bs} is {'VALID' if is_valid else 'INVALID'} with tolerance {r_t}/{a_t}")
 
                         if is_valid and edge.bs > highest_bootstrap:
                             # new best bootstrap
@@ -325,8 +305,6 @@ class Input:
         else:
             exit("No source of tree files specified.")
 
-        # pprint(files)
-
         missing_files = 0
         for file in files:
             if not isfile(file[0]):
@@ -339,7 +317,6 @@ class Input:
 
     @staticmethod
     def parse_csv_input(path):
-        # print(f"{isfile(path)=}")
         if not isfile(path):
             exit(f"EXIT: {path} does not exist")
 
@@ -352,7 +329,6 @@ class Input:
                 i += 1
                 line_items = line.split(',')
                 files.append([line_items[0].strip("\""), line_items[1].strip("\"") if len(line_items) > 1 else None])
-                # if line_items[1]:
 
         nones = 0
         for file in files:
@@ -361,9 +337,7 @@ class Input:
         if nones == 0 or nones == len(files):
             # good
             return files
-            # print(f"{nones}/{len(files)}")
         else:
-            # print(f"{nones}/{len(files)}")
             exit(f"Seed taxon definitions in {path} are inconsistent ({nones} undefined, {len(files) - nones} defined)")
 
     @staticmethod
@@ -379,7 +353,6 @@ class Input:
                     continue
 
         files = [tree_dir + _ for _ in files]
-        # print(f"total of {len(files)} files")
         return files
 
     @staticmethod
@@ -394,14 +367,11 @@ class PTree:
         self.edges = []
         self.taxons = []
         self.nodes = []
-
-        # self.subtree_parse(self.tree_date)
-
     def parse_file(self, data):
         # start building tree from data
         # get root taxon name from the start
         data = data.rstrip()[1:-2]
-        data = re.sub(r':[0-9]+\.[0-9]*', '', data)
+        data = sub(r':[0-9]+\.[0-9]*', '', data)
 
         i = data.find(',')
         self.root = self.Taxon(data[:i])
@@ -526,7 +496,6 @@ class PTree:
                         st_taxons.append(obj)
                     elif isinstance(obj, PTree.Edge) and not obj == bad_edge:
                         rec_gather(obj.get_other_node(node), obj)
-                # print(st_taxons)
 
             rec_gather(self.nodes[d], self)
 
@@ -538,7 +507,7 @@ class PTree:
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(
+    parser = ArgumentParser(
         prog='TreeSorter',
         description="Analyses your phylogenetic tree files to determine highest bootstrap\
                         for specified subtree criteria.")
@@ -569,12 +538,14 @@ def parse_args():
                         help="Run verbose")
 
     parser.add_argument('criteria', nargs='*',
-                        help="String list of criteria to apply on subtrees")
+                        help="One or more criteria to apply on subtrees defined with taxon names (* as wildcard), \
+                        in the format of NAME=DEFINITIONS, where definitions can include required minimums using \
+                        \'NUMBER+\' in front (decimal for relative, whole for absolute), also allowing \
+                        one level of brackets to denote grouping of taxons with one common minimum\
+                        Example: \"some_dinos=0.333+Dinos*\" \"some_two=0.125(Toxo*,Bobo*),4+Karo*,Mimi-123-2\"")
 
     return parser.parse_args()
 
 
 if __name__ == "__main__":
     main()
-    # test_crit_checker()
-    # test_build_from_file()

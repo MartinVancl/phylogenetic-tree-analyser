@@ -22,6 +22,7 @@ class Settings:
 def main():
     args = parse_args()
     Settings.args = args
+    pprint(args)
     Settings.verbose = args.v
 
     if Settings.verbose:
@@ -30,6 +31,12 @@ def main():
 
     if len(args.criteria) < 1:
         exit("No sorting criteria specified.")
+
+    if not args.mintaxons:
+        if args.n:
+            exit("Minimum taxon number in subtree has to be set with -m MINTAXONS")
+        else:
+            args.mintaxons = 2
 
     files = Input.get_file_list(args)
     crit_tree = Critter.build_criteria_tree(args.criteria)
@@ -54,8 +61,11 @@ def main():
             for taxon in tree.taxons:
                 if match(seed_taxon_re, taxon.name):
                     seed_taxons.append(taxon.name)
-        else:
+        elif not args.n:
             seed_taxons = [file[1]]
+        elif args.n:
+            # no seed taxon
+            seed_taxons = [None]
         for seed_taxon in seed_taxons:
             res = Critter.sort_one_tree_file(tree, seed_taxon, crit_tree, file[0])
             row = csv.csv_row_from_list(csv.list_from_result_dict(res))
@@ -286,7 +296,23 @@ class Input:
     @staticmethod
     def read_tree_file(path):
         with open(path, 'r') as f:
-            data = ''.join(f.readlines()).rstrip()
+            line = f.readline().rstrip()
+            if line[:6] == "#NEXUS":
+                # preparse nexus format
+                begin = False
+                for line in f.readlines():
+                    line = line.rstrip()
+                    if begin:
+                        data = line[line.find('('):]
+                        data = sub('\d\.\d+E-\d+', '10.0', data)
+                        data = sub('\[&label=(\d+)\]', '\\1', data)
+                        break
+                    if line[:12] == "begin trees;":
+                        begin = True
+                        continue
+
+            else:
+                data = line
         return data
 
     @staticmethod
@@ -525,7 +551,7 @@ def parse_args():
     root_taxon.add_argument('-n', action='store_true',
                             help="Don't use root taxon")
 
-    parser.add_argument('-m', '--mintaxons', default=0,
+    parser.add_argument('-m', '--mintaxons',
                         help="Minimal number of taxons that pass criteria for a bootstrap to be acceptable.")
 
     parser.add_argument('-t', '--tolerance', default=0,

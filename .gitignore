@@ -1,18 +1,18 @@
-.DS_Store
 
-# Dev temps
-*.trees
-*.csv
-*.fasta.tre
-./examples
+# Large Testings sets
+tests/bulk/*
 
 *.tmp
+*.csv
+!tests/*.csv
+
 
 # ignore IDE
 .vscode/
 .idea/
 
-
+# macOS
+.DS_Store
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

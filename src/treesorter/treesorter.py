@@ -15,6 +15,7 @@ class Settings:
 
 
 def main():
+    # TODO --nested argument and all that comes with it
     args = parse_args()
     Settings.args = args
     pprint(args)
@@ -137,9 +138,11 @@ class Critter:
             # too small subtree
             return False, 0, 0
 
+        taxon_objects = [_[0] for _ in taxons]
+
         # check for seed taxon
         if seed:
-            if seed not in [_.name for _ in taxons]:
+            if seed not in [_.name for _ in taxon_objects]:
                 # seed taxon not in this subtree, not a valid tree
                 return False, 0, 0
 
@@ -147,7 +150,7 @@ class Critter:
 
         for quantified in criterium:
             passing_taxon_count = 0
-            for tested_taxon in taxons:
+            for tested_taxon in taxon_objects:
                 for re_pattern in quantified[1]:
                     if match(re_pattern, tested_taxon.name):
                         passing_taxon_count += 1
@@ -509,6 +512,7 @@ class PTree:
         def __init__(self):
             self.bs = None
             self.nodes = [None, None]
+            self.depth = 0
 
         def get_other_node(self, node):
             if self.nodes[0] == node:
@@ -521,15 +525,18 @@ class PTree:
         def get_subtree_taxons(self, d):
             st_taxons = []
             d %= 2
+            self.depth = 0
 
-            def rec_gather(node, bad_edge):
+            def rec_gather(node, from_edge, original_edge):
+                original_edge.depth += 1
                 for obj in node.edges:
                     if isinstance(obj, PTree.Taxon):
-                        st_taxons.append(obj)
-                    elif isinstance(obj, PTree.Edge) and not obj == bad_edge:
-                        rec_gather(obj.get_other_node(node), obj)
+                        st_taxons.append([obj, original_edge.depth])
+                    elif isinstance(obj, PTree.Edge) and not obj == from_edge:
+                        rec_gather(obj.get_other_node(node), obj, original_edge)
+                original_edge.depth -= 1
 
-            rec_gather(self.nodes[d], self)
+            rec_gather(self.nodes[d], self, self)
 
             return st_taxons
 

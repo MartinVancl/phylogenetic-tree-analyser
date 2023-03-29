@@ -26,8 +26,8 @@ def main():
     if len(args.criteria) < 1:
         exit("No sorting criteria specified.")
 
-    files = get_file_list(args)
-    crit_tree = build_criteria_tree(args.criteria)
+    files = Input.get_file_list(args)
+    crit_tree = Critter.build_criteria_tree(args.criteria)
 
     # CSV TESTING - START HERE
 
@@ -46,18 +46,18 @@ def main():
         i_t += 1
         # print(file)
         tree = PTree()
-        tree.parse_file(read_tree_file(file[0]))
+        tree.parse_file(Input.read_tree_file(file[0]))
         seed_taxons = []
 
         if args.seedtaxon:
-            seed_taxon_re = regize(args.seedtaxon)
+            seed_taxon_re = Critter.regize(args.seedtaxon)
             for taxon in tree.taxons:
                 if re.match(seed_taxon_re, taxon.name):
                     seed_taxons.append(taxon.name)
         else:
             seed_taxons = [file[1]]
         for seed_taxon in seed_taxons:
-            res = sort_one_tree_file(tree, seed_taxon, crit_tree, file[0])
+            res = Critter.sort_one_tree_file(tree, seed_taxon, crit_tree, file[0])
             # print(i_t)
             # pprint(res)
             row = csv.csv_row_from_list(csv.list_from_result_dict(res))
@@ -123,276 +123,269 @@ class CSVOutput:
             return False
 
 
-def test_crit_checker():
-    criteria = [
-        "crit_1=10+(Aa*,Ab*),Ca*",
-        "crit_2=0.125+Da*,Db*",
-        "crit_3=3+Ga*,2+Ha,0.2+Ia*",
-        "crit_4=Ha,Ma*,0.22+(Fa,Fe,Fo*),0.2+(Ia,Ib*,Ic),12+(Ko*,Lo,To)"]
-    tolerance = "0.125"
-    minimum = 2
-    build_criteria_checker(criteria, tolerance, minimum)
-    pass
+class Critter:
+    @staticmethod
+    def criteria_checker(taxons: list, criterium: list, tolerance: float, minimum: int, seed=None):
+        taxons_n = len(taxons)
 
+        tolerance_is_relative = tolerance < 1.0
+        tolerance_is_absolute = not tolerance_is_relative
 
-def criteria_checker(taxons: list, criterium: list, tolerance: float, minimum: int, seed=None):
-    taxons_n = len(taxons)
+        used_relative_tolerance = 0.0
+        used_absolute_tolerance = 0
 
-    tolerance_is_relative = tolerance < 1.0
-    tolerance_is_absolute = not tolerance_is_relative
-
-    used_relative_tolerance = 0.0
-    used_absolute_tolerance = 0
-
-    if taxons_n < minimum:
-        # too small subtree
-        return False, 0, 0
-
-    # check for seed taxon
-    if seed:
-        if seed not in [_.name for _ in taxons]:
-            # seed taxon not in this subtree, not a valid tree
+        if taxons_n < minimum:
+            # too small subtree
             return False, 0, 0
 
-    passing_taxon_set = set()
+        # check for seed taxon
+        if seed:
+            if seed not in [_.name for _ in taxons]:
+                # seed taxon not in this subtree, not a valid tree
+                return False, 0, 0
 
-    for quantified in criterium:
-        passing_taxon_count = 0
-        for tested_taxon in taxons:
-            for re_pattern in quantified[1]:
-                if re.match(re_pattern, tested_taxon.name):
-                    passing_taxon_count += 1
-                    passing_taxon_set.add(tested_taxon)
-                    break
+        passing_taxon_set = set()
 
-        # check if passes set quantification
-        if quantified[0] < 1:
+        for quantified in criterium:
+            passing_taxon_count = 0
+            for tested_taxon in taxons:
+                for re_pattern in quantified[1]:
+                    if re.match(re_pattern, tested_taxon.name):
+                        passing_taxon_count += 1
+                        passing_taxon_set.add(tested_taxon)
+                        break
+
+            # check if passes set quantification
+            if quantified[0] < 1:
+                # relative quantification
+                if (passing_taxon_count / taxons_n) >= quantified[0]:
+                    # enough occurences of specified set
+                    pass
+                else:
+                    # not a valid bootstrap
+                    return False, 0, 0
+            else:
+                # absolute quantification
+                if passing_taxon_count > quantified[0]:
+                    # enough occurences of specified set
+                    pass
+                else:
+                    # not a valid bootstrap
+                    return False, 0, 0
+
+        # check if passes total tolerance after all criteria are tested
+        passing_taxon_count = len(passing_taxon_set)
+        if tolerance_is_relative:
             # relative quantification
-            if (passing_taxon_count / taxons_n) >= quantified[0]:
+            used_relative_tolerance = ((taxons_n - passing_taxon_count) / taxons_n)
+            if used_relative_tolerance <= tolerance:
                 # enough occurences of specified set
                 pass
             else:
                 # not a valid bootstrap
                 return False, 0, 0
-        else:
+        elif tolerance_is_absolute:
             # absolute quantification
-            if passing_taxon_count > quantified[0]:
+            used_absolute_tolerance = (taxons_n - passing_taxon_count)
+            if used_absolute_tolerance <= tolerance:
                 # enough occurences of specified set
                 pass
             else:
                 # not a valid bootstrap
                 return False, 0, 0
 
-    # check if passes total tolerance after all criteria are tested
-    passing_taxon_count = len(passing_taxon_set)
-    if tolerance_is_relative:
-        # relative quantification
-        used_relative_tolerance = ((taxons_n - passing_taxon_count) / taxons_n)
-        if used_relative_tolerance <= tolerance:
-            # enough occurences of specified set
-            pass
-        else:
-            # not a valid bootstrap
-            return False, 0, 0
-    elif tolerance_is_absolute:
-        # absolute quantification
-        used_absolute_tolerance = (taxons_n - passing_taxon_count)
-        if used_absolute_tolerance <= tolerance:
-            # enough occurences of specified set
-            pass
-        else:
-            # not a valid bootstrap
-            return False, 0, 0
+        # if nothing else fails, it is a valid bootstrap
 
-    # if nothing else fails, it is a valid bootstrap
+        if tolerance_is_relative:
+            used_absolute_tolerance = round(used_relative_tolerance * taxons_n)
+            # print(f"This should be quite WHOLE  : {used_absolute_tolerance}")
+        elif tolerance_is_absolute:
+            used_relative_tolerance = used_absolute_tolerance / taxons_n
+            # print(f"This should be quite DECIMAL: {used_relative_tolerance:1.3f}")
 
-    if tolerance_is_relative:
-        used_absolute_tolerance = round(used_relative_tolerance * taxons_n)
-        # print(f"This should be quite WHOLE  : {used_absolute_tolerance}")
-    elif tolerance_is_absolute:
-        used_relative_tolerance = used_absolute_tolerance / taxons_n
-        # print(f"This should be quite DECIMAL: {used_relative_tolerance:1.3f}")
+        return True, round(used_relative_tolerance, Settings.relative_tolerance_rounding), used_absolute_tolerance
 
-    return True, round(used_relative_tolerance, Settings.relative_tolerance_rounding), used_absolute_tolerance
+    @staticmethod
+    def build_criteria_tree(criteria: str):
 
-def regize(s):
-    s = s.replace("*", ".*")
-    s = f"^{s}$"
-    return s
+        def parse_crit(s):
+            crit_list = []
+            q = 0
+            while s:
+                # print(f"{j:04d} string is: {s}")
+                if s[0].isdigit():
+                    # print("is digit")
+                    i = s.find("+")
+                    q = float(s[:i])
+                    # print(f"{q=}")
+                    s = s[i + 1:].lstrip(',')
+                elif s[0] == "(":
+                    # print("is (")
+                    i = s.find(")")
+                    tup = (q, [Critter.regize(_) for _ in s[1:i].split(',')])
+                    crit_list.append(tup)
+                    q = 0
+                    # print(f"{tup=}")
+                    s = s[i + 1:].lstrip(',')
+                else:
+                    # print("else")
+                    i = len(s) + 1
+                    i = s.find(',') if s.find(',') >= 0 else i
+                    tax = s[0:i]
+                    tup = (q, [Critter.regize(tax)])
+                    crit_list.append(tup)
+                    q = 0
+                    s = s[i:].lstrip(',')
 
-def build_criteria_tree(criteria: str):
+            return crit_list
 
+        crits_tree = {}
+        for crit in criteria:
+            # go through all string criteria and prepare filter
+            crit = crit.split('=')
+            crits_tree[crit[0]] = parse_crit(crit[1])
 
-    def parse_crit(s):
-        crit_list = []
-        q = 0
-        while s:
-            # print(f"{j:04d} string is: {s}")
-            if s[0].isdigit():
-                # print("is digit")
-                i = s.find("+")
-                q = float(s[:i])
-                # print(f"{q=}")
-                s = s[i + 1:].lstrip(',')
-            elif s[0] == "(":
-                # print("is (")
-                i = s.find(")")
-                tup = (q, [regize(_) for _ in s[1:i].split(',')])
-                crit_list.append(tup)
-                q = 0
-                # print(f"{tup=}")
-                s = s[i + 1:].lstrip(',')
+            # print(crits_tree)
+
+        return crits_tree
+
+    @staticmethod
+    def regize(s):
+        s = s.replace("*", ".*")
+        s = f"^{s}$"
+        return s
+
+    @staticmethod
+    def sort_one_tree_file(tree, seed_taxon, crit_tree, tree_path):
+        highest_bootstrap = -1
+        lowest_rel_tolerance_used = 1.0
+        lowest_abs_tolerance_used = 10e6
+        subtree_size = 0
+
+        valid_count = 0
+
+        results = dict()
+
+        results['file'] = basename(tree_path)
+        results['taxon'] = seed_taxon
+        results['crits'] = {}
+
+        for column, criterium in crit_tree.items():
+            for edge in tree.edges:
+                for d in range(2):
+                    taxons = edge.get_subtree_taxons(d)
+                    is_valid, r_t, a_t = Critter.criteria_checker(taxons, criterium, float(Settings.args.tolerance),
+                                                          int(Settings.args.mintaxons), seed=seed_taxon)
+                    if is_valid:
+                        valid_count += 1
+                        # print(f"Bootstrap {edge.bs} is {'VALID' if is_valid else 'INVALID'} with tolerance {r_t}/{a_t}")
+
+                        if is_valid and edge.bs > highest_bootstrap:
+                            # new best bootstrap
+                            highest_bootstrap = edge.bs
+                            subtree_size = len(taxons)
+                            lowest_rel_tolerance_used = r_t
+                            lowest_abs_tolerance_used = a_t
+                        elif edge.bs == highest_bootstrap and r_t < lowest_rel_tolerance_used:
+                            lowest_rel_tolerance_used = r_t
+                            lowest_abs_tolerance_used = a_t
+
+            if valid_count > 0:
+                results['size'] = subtree_size
+                results['crits'][column] = (highest_bootstrap, lowest_rel_tolerance_used, lowest_abs_tolerance_used)
+                pass
             else:
-                # print("else")
-                i = len(s) + 1
-                i = s.find(',') if s.find(',') >= 0 else i
-                tax = s[0:i]
-                tup = (q, [regize(tax)])
-                crit_list.append(tup)
-                q = 0
-                s = s[i:].lstrip(',')
+                results['size'] = ''
+                results['crits'][column] = None
+                pass
 
-        return crit_list
-
-    crits_tree = {}
-    for crit in criteria:
-        # go through all string criteria and prepare filter
-        crit = crit.split('=')
-        crits_tree[crit[0]] = parse_crit(crit[1])
-
-        # print(crits_tree)
-
-    return crits_tree
+        return results
 
 
-def sort_one_tree_file(tree, seed_taxon, crit_tree, tree_path):
-    highest_bootstrap = -1
-    lowest_rel_tolerance_used = 1.0
-    lowest_abs_tolerance_used = 10e6
-    subtree_size = 0
+class Input:
+    @staticmethod
+    def read_tree_file(path):
+        with open(path, 'r') as f:
+            data = ''.join(f.readlines()).rstrip()
+        return data
 
-    valid_count = 0
-
-    results = dict()
-
-    results['file'] = basename(tree_path)
-    results['taxon'] = seed_taxon
-    results['crits'] = {}
-
-    for column, criterium in crit_tree.items():
-        for edge in tree.edges:
-            for d in range(2):
-                taxons = edge.get_subtree_taxons(d)
-                is_valid, r_t, a_t = criteria_checker(taxons, criterium, float(Settings.args.tolerance),
-                                                      int(Settings.args.mintaxons), seed=seed_taxon)
-                if is_valid:
-                    valid_count += 1
-                    # print(f"Bootstrap {edge.bs} is {'VALID' if is_valid else 'INVALID'} with tolerance {r_t}/{a_t}")
-
-                    if is_valid and edge.bs > highest_bootstrap:
-                        # new best bootstrap
-                        highest_bootstrap = edge.bs
-                        subtree_size = len(taxons)
-                        lowest_rel_tolerance_used = r_t
-                        lowest_abs_tolerance_used = a_t
-                    elif edge.bs == highest_bootstrap and r_t < lowest_rel_tolerance_used:
-                        lowest_rel_tolerance_used = r_t
-                        lowest_abs_tolerance_used = a_t
-
-        if valid_count > 0:
-            results['size'] = subtree_size
-            results['crits'][column] = (highest_bootstrap, lowest_rel_tolerance_used, lowest_abs_tolerance_used)
-            pass
+    @staticmethod
+    def get_file_list(args):
+        files = []
+        # filename and root taxon
+        if args.directory:
+            files = Input.get_files_in_dir(args.directory[0])
+            files = [[f, Input.strip_name_to_taxon(f)] for f in files]
+        elif args.list:
+            files = Input.parse_csv_input(args.list[0])
+            if not files[0][1]:
+                files = [[f[0], Input.strip_name_to_taxon(f[0])] for f in files]
+        elif args.files:
+            files = [[f, Input.strip_name_to_taxon(f)] for f in args.files]
         else:
-            results['size'] = ''
-            results['crits'][column] = None
-            pass
+            exit("No source of tree files specified.")
 
-    return results
+        # pprint(files)
 
+        missing_files = 0
+        for file in files:
+            if not isfile(file[0]):
+                missing_files += 1
+                print(f"File '{file[0]}' does not exist")
+        if missing_files > 0:
+            exit(f"EXIT: There were {missing_files} non-existent files.")
 
-def read_tree_file(path):
-    with open(path, 'r') as f:
-        data = ''.join(f.readlines()).rstrip()
-    return data
-
-
-def strip_name_to_taxon(path):
-    bn = basename(path)
-    return bn[:bn.find(".")]
-
-
-def get_file_list(args):
-    files = []
-    # filename and root taxon
-    if args.directory:
-        files = get_files_in_dir(args.directory[0])
-        files = [[f, strip_name_to_taxon(f)] for f in files]
-    elif args.list:
-        files = parse_csv_input(args.list[0])
-        if not files[0][1]:
-            files = [[f[0], strip_name_to_taxon(f[0])] for f in files]
-    elif args.files:
-        files = [[f, strip_name_to_taxon(f)] for f in args.files]
-    else:
-        exit("No source of tree files specified.")
-
-    # pprint(files)
-
-    missing_files = 0
-    for file in files:
-        if not isfile(file[0]):
-            missing_files += 1
-            print(f"File '{file[0]}' does not exist")
-    if missing_files > 0:
-        exit(f"EXIT: There were {missing_files} non-existent files.")
-
-    return files
-
-
-def parse_csv_input(path):
-    # print(f"{isfile(path)=}")
-    if not isfile(path):
-        exit(f"EXIT: {path} does not exist")
-
-    files = []
-    with open(path) as csv_file:
-        i = 0
-        while line := csv_file.readline().rstrip():
-            if line[0] == '#':
-                continue
-            i += 1
-            line_items = line.split(',')
-            files.append([line_items[0].strip("\""), line_items[1].strip("\"") if len(line_items) > 1 else None])
-            # if line_items[1]:
-
-    nones = 0
-    for file in files:
-        nones += 1 if not file[1] else 0
-
-    if nones == 0 or nones == len(files):
-        # good
         return files
-        # print(f"{nones}/{len(files)}")
-    else:
-        # print(f"{nones}/{len(files)}")
-        exit(f"Seed taxon definitions in {path} are inconsistent ({nones} undefined, {len(files) - nones} defined)")
 
+    @staticmethod
+    def parse_csv_input(path):
+        # print(f"{isfile(path)=}")
+        if not isfile(path):
+            exit(f"EXIT: {path} does not exist")
 
-def get_files_in_dir(tree_dir):
-    if tree_dir[-1] != '/':
-        tree_dir += '/'
-    files_unfiltered = listdir(tree_dir)
-    files = []
-    for name in files_unfiltered:
-        for ext in Settings.allowed_extensions:
-            if name[-len(ext):] == ext:
-                files.append(name)
-                continue
+        files = []
+        with open(path) as csv_file:
+            i = 0
+            while line := csv_file.readline().rstrip():
+                if line[0] == '#':
+                    continue
+                i += 1
+                line_items = line.split(',')
+                files.append([line_items[0].strip("\""), line_items[1].strip("\"") if len(line_items) > 1 else None])
+                # if line_items[1]:
 
-    files = [tree_dir + _ for _ in files]
-    # print(f"total of {len(files)} files")
-    return files
+        nones = 0
+        for file in files:
+            nones += 1 if not file[1] else 0
+
+        if nones == 0 or nones == len(files):
+            # good
+            return files
+            # print(f"{nones}/{len(files)}")
+        else:
+            # print(f"{nones}/{len(files)}")
+            exit(f"Seed taxon definitions in {path} are inconsistent ({nones} undefined, {len(files) - nones} defined)")
+
+    @staticmethod
+    def get_files_in_dir(tree_dir):
+        if tree_dir[-1] != '/':
+            tree_dir += '/'
+        files_unfiltered = listdir(tree_dir)
+        files = []
+        for name in files_unfiltered:
+            for ext in Settings.allowed_extensions:
+                if name[-len(ext):] == ext:
+                    files.append(name)
+                    continue
+
+        files = [tree_dir + _ for _ in files]
+        # print(f"total of {len(files)} files")
+        return files
+
+    @staticmethod
+    def strip_name_to_taxon(path):
+        bn = basename(path)
+        return bn[:bn.find(".")]
 
 
 class PTree:

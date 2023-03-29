@@ -1,7 +1,7 @@
 #!/usr/bin/env python3.9
 from argparse import ArgumentParser
 from pprint import pprint
-from os.path import isfile, join, basename
+from os.path import isfile, basename
 from os import listdir
 from re import match, sub
 
@@ -15,11 +15,13 @@ class Settings:
 
 
 def main():
-    # TODO --nested argument and all that comes with it
     args = parse_args()
     Settings.args = args
-    pprint(args)
+    # pprint(args)
     Settings.verbose = args.v
+
+    if args.nested and args.n:
+        exit("Flag --nested requires the use of seed taxon. Use together with -s [SEEDTAXON]")
 
     if Settings.verbose:
         print("DEBUG-ARGS:", end=' ')
@@ -51,6 +53,8 @@ def main():
     i_t = 0
     for file in files:
         i_t += 1
+        if Settings.verbose:
+            print(f"File number {i_t:5d} {file[0]}")
         tree = PTree()
         tree.parse_file(Input.read_tree_file(file[0]))
         seed_taxons = []
@@ -97,18 +101,17 @@ class CSVOutput:
             pass
         return build_list
 
-    @staticmethod
-    def csv_row_from_list(items: list):
-        row = ""
+    def csv_row_from_list(self, items: list):
+        row = "\n" if self.rows_written > 0 else ""
         items_n = len(items)
         for i, item in enumerate(items):
             row += f"\"{item}\"" + ("," if i + 1 < items_n else "")
 
-        row += "\n"
         return row
 
     def write_row(self, s: str):
         self.file_object.write(s)
+        self.rows_written += 1
 
     def write_headers(self, crit_list: list):
         if self.rows_written == 0:
@@ -118,7 +121,7 @@ class CSVOutput:
                 crit_items += [item, "tu_R", "tu_A"]
                 self.ordered_crits += [item[:item.find("=")]]
             items += crit_items
-            self.file_object.write(self.csv_row_from_list(items))
+            self.write_row(self.csv_row_from_list(items))
         else:
             exit("Headers already written")
 
@@ -253,6 +256,7 @@ class Critter:
         lowest_abs_tolerance_used = 10e6
         tree_size = len(tree.taxons)
         lowest_subtree_size = tree_size
+        nested = Settings.args.nested
 
         valid_count = 0
 
@@ -264,12 +268,45 @@ class Critter:
         results['crits'] = {}
 
         for column, criterium in crit_tree.items():
+
+            # filter only quantified criteria
+            quantified_criteria = list(filter(lambda taxon_re : taxon_re[0] > 0.0, criterium))
+
             for edge in tree.edges:
                 for d in range(2):
                     taxons = edge.get_subtree_taxons(d)
                     this_subtree_size = len(taxons)
+
                     is_valid, r_t, a_t = Critter.criteria_checker(taxons, criterium, float(Settings.args.tolerance),
                                                           int(Settings.args.mintaxons), seed=seed_taxon)
+
+                    if is_valid and nested:
+                        filtered = list(filter(lambda _ : _[1] == 1, taxons))
+                        filtered = [_[0].name for _ in filtered]
+                        # seed taxon is in depth one - right after bipartition
+                        if seed_taxon in filtered:
+                            is_valid = False
+
+                    if is_valid and nested:
+                        # find seed taxon, get its depth
+                        found_seed = list(filter(lambda _ : _[0].name == seed_taxon, taxons))
+                        seed_depth = found_seed[0][1]
+                        # filter other taxons with lower depth
+                        lower_depth = list(filter(lambda _ : _[1] <= seed_depth, taxons))
+
+                        any_match = False
+                        for taxon in lower_depth:
+                            for q_crit in quantified_criteria:
+                                for q_crit_re in q_crit[1]:
+                                    if match(q_crit_re, taxon[0].name):
+                                        any_match = True
+                        if not any_match:
+                            is_valid = False
+
+
+
+                        # check if at least one passes quantifed criteria
+
                     if is_valid:
                         valid_count += 1
 
@@ -575,6 +612,8 @@ def parse_args():
                         help="Output CSV file")
     parser.add_argument('-v', action='store_true',
                         help="Run verbose")
+    parser.add_argument('--nested', action='store_true',
+                        help="Requires use of seed taxon. Checks if seed taxon is nested within criteria set with minimum occurence.")
 
     parser.add_argument('criteria', nargs='*',
                         help="One or more criteria to apply on subtrees defined with taxon names (* as wildcard), \

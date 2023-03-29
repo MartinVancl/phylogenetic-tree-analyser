@@ -1,16 +1,41 @@
-.DS_Store
-
-# Dev temps
-*.trees
-*.csv
-*.fasta.tre
-
 *.tmp
+
+# Temp Testing Files
+*.csv
+
+*.tree
+*.fasta.tre
+*.tre
+*.tree
+*.nex
+*.nxs
+*.treefile
+
+
+
+# Testing files
+!tests/**/*.csv
+tests/**/bootstraps.csv
+
+!tests/**/*.tree
+!tests/**/*.fasta.tre
+!tests/**/*.tre
+!tests/**/*.tree
+!tests/**/*.nex
+!tests/**/*.nxs
+!tests/**/*.treefile
+
+tests/bulk/*
+
+
+
 
 # ignore IDE
 .vscode/
 .idea/
 
+# ignore OS files
+.DS_Store
 
 
 # Byte-compiled / optimized / DLL files

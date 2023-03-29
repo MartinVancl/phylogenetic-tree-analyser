@@ -1,0 +1,64 @@
+EUGLENIDS.TRE
+
+	TASK 1:
+		Determine the origin of the gene "EUG_Eutreptiella_gymnastica".
+		Disregard other euglenophyte (prefix "EUG_") sequences.
+		The clade must contain more than two sequences of said origin.
+		The potential origins are: 
+		Green: prasinophytes ("PRA_"), Chlorophyta ("CHL_"), Ulvophyta ("ULV_"), land plants ("STR_")
+		Red-primary: rhodophytes ("RHO_") 
+		Red-secondary: "secondary_"
+		Prokaryotic: "BAC_"
+
+	TASK 2:
+		For every euglenophyte homolog (prefix "EUG_") , determine if the gene is of green, red, or bacterial origin.
+		The clade must contain more than one sequence of said origin.
+		Green: prasinophytes ("PRA_"), Chlorophyta ("CHL_"), Ulvophyta ("ULV_"), land plants ("STR_")
+		Red: rhodophytes ("RHO_"), any complex red plastid ("secondary_")
+		Bacteria: "BAC_"
+--------------------------------------------------------------
+KARENIACEAE.TRE
+
+	TASK 3:
+		For all Karlodinium homologs (sequences names contain the genus name), determine if it clusters with a clade of at least 3 other sequences.
+		The clades of interest are:
+		haptophytes (prefix "Haptophytes-")
+		rhodophytes (no common prefix, sequence names include genus name: Chondrus, Cyanidioschyzon, Porphyridium, Pyropia, or Galdieria)
+
+	TASK 4:
+		For all Karlodinium homologs (sequences names contain the genus name), determine if it is nested within a clade of at least 3 other sequences.
+		Tolerance of max 1 foreign sequence.
+		The clades of interest are:
+		haptophytes (prefix "Haptophytes-")
+		rhodophytes (no common prefix, sequence names include genus name: Chondrus, Cyanidioschyzon, Porphyridium, Pyropia, or Galdieria)
+--------------------------------------------------------------
+RHODOPHYTES.TRE
+
+	TASK 5:
+		Do rhodophytes and cryptophytes (annotated as "Rhodophyta" and "Cryptophyta" in the sequence name) form a monophyletic clade in the tree?
+		The clade must contain at least two rhodophytes.
+
+	TASK 6:
+		Do rhodophytes (annotated as "Rhodophyta" in the sequence name) form a monophyletic clade with any combination of red complex algae (annotated as "Haptophyta", "Cryptophyta", "Ochrophyta", or "Dinophyta") in the tree?
+		The clade must contain at least two rhodophytes.
+
+	TASK 7:
+		Do rhodophytes (annotated as "Rhodophyta" in the sequence name) form a monophyletic clade with any combination of red complex algae (annotated as "Haptophyta", "Cryptophyta", "Ochrophyta", or "Dinophyta") in the tree?
+		The clade must contain both Porphyra and Chondrus (sequence names contain the genus name).
+		Tolerance of max 10% foreign sequences.
+--------------------------------------------------------------
+
+CORRECT ANSWERS??:
+Task 1:	EUG_Eutreptiella_gymnastica		green 82
+Task 2:	EUG_Eutreptiella_gymnastica			green 99
+		EUG_Euglena_longa					green 99
+		EUG_Euglena_gracilis_bacillaris		green 99
+		EUG_Euglena_gracilis_Z_paralog2		green 99
+		EUG_Euglena_gracilis_Z_paralog1		red 93
+Taks 3:	Dinos-Kareniaceae-Karlodinium-sp-RCC3446-ANV-678	rhodophytes 97
+		Dinos-Kareniaceae-Karlodinium-armiger-78550			0
+Task 4:	Dinos-Kareniaceae-Karlodinium-sp-RCC3446-ANV-678	0
+		Dinos-Kareniaceae-Karlodinium-armiger-78550			haptophytes 35
+Task 5:	yes 78
+Task 6:	yes 100
+Task 7:	yes 98

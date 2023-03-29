@@ -1,0 +1,118 @@
+#NEXUS
+begin taxa;
+	dimensions ntax=16;
+	taxlabels
+	Haptophyta-Emiliania-huxleyi
+	Haptophyta-Isochrysis-galbana
+	Rhodophyta_Cyanidioschyzon-merolae
+	Rhodophyta_Pyropia-sp
+	Cryptophyta-Rhodomonas-salina
+	Rhodophyta_Porphyra_purpurea
+	Bigelowiella-natans
+	green_Tetraselmis
+	green_Pedino
+	green_Chlorella
+	Rhodophyta-Pyropia-sp
+	Rhodophyta-Chondrus_crispus
+	Cryptophyta-Hemiselmis-andersenii-CAMPEP-0198168590
+	Cryptophyta-Hemiselmis-pacifica
+	Rhodophyta-Bangiomorpha-pubescens
+	green_Chlamy
+;
+end;
+
+begin trees;
+	tree tree_1 = [&R] (green_Chlamy:0.3,((((((Rhodophyta-Chondrus_crispus:0.494424,(Rhodophyta-Pyropia-sp:0.338955,Rhodophyta-Bangiomorpha-pubescens:0.167027)[&label=100]:0.266069)[&label=68]:0.084165,(Cryptophyta-Hemiselmis-pacifica:1.0E-6,Cryptophyta-Hemiselmis-andersenii-CAMPEP-0198168590:1.0E-6)[&label=100]:0.634799)[&label=78]:0.176202,((((Haptophyta-Emiliania-huxleyi:0.12,Haptophyta-Isochrysis-galbana:0.08)[&label=50]:0.18,Rhodophyta_Pyropia-sp:0.32)[&label=47]:0.26,Rhodophyta_Cyanidioschyzon-merolae:0.1)[&label=99]:0.233513,(Cryptophyta-Rhodomonas-salina:0.779,Rhodophyta_Porphyra_purpurea:0.21932)[&label=93]:0.112089)[&label=100]:0.524808)[&label=95]:0.540198,Bigelowiella-natans:0.392726)[&label=98]:0.23398,green_Pedino:0.314948)[&label=84]:0.33,green_Tetraselmis:0.6):0.33,green_Chlorella:0.6);
+end;
+
+begin figtree;
+	set appearance.backgroundColorAttribute="Default";
+	set appearance.backgroundColour=#ffffff;
+	set appearance.branchColorAttribute="User selection";
+	set appearance.branchColorGradient=false;
+	set appearance.branchLineWidth=1.0;
+	set appearance.branchMinLineWidth=0.0;
+	set appearance.branchWidthAttribute="Fixed";
+	set appearance.foregroundColour=#000000;
+	set appearance.hilightingGradient=false;
+	set appearance.selectionColour=#2d3680;
+	set branchLabels.colorAttribute="User selection";
+	set branchLabels.displayAttribute="label";
+	set branchLabels.fontName="Calibri";
+	set branchLabels.fontSize=12;
+	set branchLabels.fontStyle=0;
+	set branchLabels.isShown=true;
+	set branchLabels.significantDigits=4;
+	set layout.expansion=0;
+	set layout.layoutType="RECTILINEAR";
+	set layout.zoom=0;
+	set legend.attribute=null;
+	set legend.fontSize=10.0;
+	set legend.isShown=false;
+	set legend.significantDigits=4;
+	set nodeBars.barWidth=4.0;
+	set nodeBars.displayAttribute=null;
+	set nodeBars.isShown=false;
+	set nodeLabels.colorAttribute="User selection";
+	set nodeLabels.displayAttribute="Node ages";
+	set nodeLabels.fontName="Agency FB";
+	set nodeLabels.fontSize=8;
+	set nodeLabels.fontStyle=0;
+	set nodeLabels.isShown=false;
+	set nodeLabels.significantDigits=4;
+	set nodeShapeExternal.colourAttribute=null;
+	set nodeShapeExternal.isShown=false;
+	set nodeShapeExternal.minSize=10.0;
+	set nodeShapeExternal.scaleType=Width;
+	set nodeShapeExternal.shapeType=Circle;
+	set nodeShapeExternal.size=4.0;
+	set nodeShapeExternal.sizeAttribute=null;
+	set nodeShapeInternal.colourAttribute=null;
+	set nodeShapeInternal.isShown=false;
+	set nodeShapeInternal.minSize=10.0;
+	set nodeShapeInternal.scaleType=Width;
+	set nodeShapeInternal.shapeType=Circle;
+	set nodeShapeInternal.size=4.0;
+	set nodeShapeInternal.sizeAttribute=null;
+	set polarLayout.alignTipLabels=false;
+	set polarLayout.angularRange=0;
+	set polarLayout.rootAngle=0;
+	set polarLayout.rootLength=100;
+	set polarLayout.showRoot=true;
+	set radialLayout.spread=0.0;
+	set rectilinearLayout.alignTipLabels=false;
+	set rectilinearLayout.curvature=0;
+	set rectilinearLayout.rootLength=100;
+	set scale.offsetAge=0.0;
+	set scale.rootAge=1.0;
+	set scale.scaleFactor=1.0;
+	set scale.scaleRoot=false;
+	set scaleAxis.automaticScale=true;
+	set scaleAxis.fontSize=8.0;
+	set scaleAxis.isShown=false;
+	set scaleAxis.lineWidth=1.0;
+	set scaleAxis.majorTicks=1.0;
+	set scaleAxis.minorTicks=0.5;
+	set scaleAxis.origin=0.0;
+	set scaleAxis.reverseAxis=false;
+	set scaleAxis.showGrid=true;
+	set scaleBar.automaticScale=true;
+	set scaleBar.fontSize=10.0;
+	set scaleBar.isShown=true;
+	set scaleBar.lineWidth=1.0;
+	set scaleBar.scaleRange=0.0;
+	set tipLabels.colorAttribute="User selection";
+	set tipLabels.displayAttribute="Names";
+	set tipLabels.fontName="Calibri";
+	set tipLabels.fontSize=12;
+	set tipLabels.fontStyle=0;
+	set tipLabels.isShown=true;
+	set tipLabels.significantDigits=4;
+	set trees.order=false;
+	set trees.orderType="increasing";
+	set trees.rooting=false;
+	set trees.rootingType="User Selection";
+	set trees.transform=false;
+	set trees.transformType="cladogram";
+end;
+

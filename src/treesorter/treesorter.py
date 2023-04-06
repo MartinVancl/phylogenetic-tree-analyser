@@ -593,7 +593,7 @@ def parse_args():
     files_source.add_argument('-l', '--list', nargs=1,
                               help="Files containing list of files to analyze")
     files_source.add_argument('-f', '--files', nargs='*',
-                              help=".tre files to analyze")
+                              help="Tree files to analyze")
 
     root_taxon = parser.add_mutually_exclusive_group(required=True)
     root_taxon.add_argument('-s', '--seedtaxon', nargs='?', default='',
